@@ -5,62 +5,85 @@
 
 A REST API designed to be used by [CEO (Collect Earth Online)](https://github.com/openforis/collect-earth-online) to interface with Google Earth Engine.
 
-## REQUIREMENTS
-
-1. [Python 3.7](https://www.python.org/)
-2. [pip (package manager)](https://github.com/pypa/pip)
-3. [Earth Engine Python API](https://developers.google.com/earth-engine/python_install)
-4. [virtualenv](https://pypi.python.org/pypi/virtualenv) (Optional)
-
 ## INSTALLATION
 
-From project root directory
+Follow this guide for your operating system. https://chriswarrick.com/blog/2016/02/10/deploying-python-web-apps-with-nginx-and-uwsgi-emperor/
+
+The following is a shorthand version for Debian / Ubuntu
+
+### Global packages
 
 ```bash
-sudo pacman -S uwsgi uwsgi-plugin-python nginx
-pip install -r requirements.txt
+sudo apt install python3 python3-venv uwsgi uwsgi-emperor uwsgi-plugin-python3 nginx-full
 ```
 
-OR using **virtualenv** (Optional)
+### Python virtual environment
 
 ```bash
-virtualenv env
-source env/bin/activate
+python3 -m venv --prompt gee-gateway /ceo/gee-venv/
+source /ceo/gee-venv/bin/activate
 pip install -r requirements.txt
+git clone https://github.com/openforis/collect-earth-online.git /ceo/gee-venv/
+sudo touch /ceo/gee-venv/uwsgi.log
+deactivate
 ```
 
 ## CONFIGURATION
 
-Edit the configuration file (`config.py` or `instance/config.py`)
+Edit the gee-gateway configuration file `gee-gateway/config.py`
+
+Copy and configure the nginx config file `gee-gateway/nginx_files/nginx.conf` into `/etc/nginx/nginx.conf`
+```bash
+sudo cp nginx_files/nginx.conf /etc/nginx/nginx.conf
+sudo nano /etc/nginx/nginx.conf
+```
 
 
-```code
-create /etc/uwsgi/vassals/gee-gateway.ini (template found in nginx directory)
-create /etc/nginx/nginx.config {path to gateway instance}
+Copy and configure the uwsgi config file `gee-gateway/nginx_files/gee-gateway.ini` into `/etc/uwsgi-emperor/vassals/gee-gateway.ini`
+```bash
+sudo cp nginx_files/gee-gateway.ini /etc/uwsgi-emperor/vassals/gee-gateway.ini
+sudo nano /etc/uwsgi-emperor/vassals/gee-gateway.ini
+```
+
+Copy empire service file `gee-gateway/nginx_files/emperor.uwsgi.service` to `/etc/systemd/system/emperor.uwsgi.service`
+```bash
+sudo cp nginx_files/emperor.uwsgi.service /etc/systemd/system/emperor.uwsgi.service
+```
+
+## PERMISSIONS
+
+Set the owner of the gee-gateway folder to the same as uid/gid in gee-gateway.ini
+```bash
+sudo usermod -a -G ceo www-data
+sudo chown -R www-data:www-data /ceo/gee-venv/
 ```
 
 ## EXECUTION
 
-From project root directory
+Disable built in emperor service for Ubuntu
 
 ```bash
-sudo systemctl enable nginx emperor.uwsgi
-sudo systemctl start nginx emperor.uwsgi
+systemctl stop uwsgi-emperor
+systemctl disable uwsgi-emperor
 ```
 
-Note: to stop
+Enable
 
 ```bash
+sudo systemctl daemon-reload
+sudo systemctl enable nginx emperor.uwsgi
+sudo systemctl reload nginx
+```
+
+Start, Stop, Restart
+
+```bash
+sudo systemctl start nginx emperor.uwsgi
 sudo systemctl stop nginx emperor.uwsgi
+sudo systemctl restart nginx emperor.uwsgi
 ```
 
-OR using **virtualenv** (Optional)
-
-```bash
-source env/bin/activate
-sudo systemctl enable nginx emperor.uwsgi
-sudo systemctl start nginx emperor.uwsgi
-```
+## USAGE
 
 ```bash
 usage: run.py [-h] [--gmaps_api_key GMAPS_API_KEY] [--ee_account EE_ACCOUNT]
@@ -88,27 +111,3 @@ From project root directory
 ```bash
 sphinx-build -aE -b html . static/docs
 ```
-
-## STRUCTURE
-
-    ├── README.md
-    ├── license.txt
-    ├── requirements.txt            list of third party packages to install
-    ├── routes.py                      application start up and routing
-    ├── instance/                   (not in version control)
-	├── config.py               alternative configuration file (not in version control)
-
-	├── __init__.py             blueprint initialization
-	├── gee/
-		├── __init__.py
-		├── gee_exception.py
-		├── utils.py
-	├── templates/              blueprint templates
-		├── index.html          playground
-	├── static/                 blueprint static files
-		├── assets/             css, images, js, libs and fonts
-    ├── conf.py                     sphinx (documentation) configuration file
-    ├── index.rst                   sphinx index file
-    ├── static/                     static resources folder
-        ├── docs/                   documentation folder
-            ├── index.html
