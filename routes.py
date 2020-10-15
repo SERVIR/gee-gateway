@@ -12,6 +12,7 @@ import urllib
 import distutils
 from distutils import util
 
+# test
 logger = logging.getLogger(__name__)
 handler = RotatingFileHandler(
     'gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
