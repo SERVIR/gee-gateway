@@ -602,7 +602,7 @@ def getDegraditionTileUrlByDate(geometry, date, visParams):
     mapparams = unmasked.getMapId(visParams)
     return mapparams['tile_fetcher'].url_format
 
-def getDegradationPlotsByPoint(geometry, start, end, band):
+def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
     if isinstance(geometry[0], list):
         geometry = ee.Geometry.Polygon(geometry)
     else:
@@ -612,7 +612,7 @@ def getDegradationPlotsByPoint(geometry, start, end, band):
         "end": end,
         "targetBands": [band], #['SWIR1','NIR','RED','GREEN','BLUE','SWIR2','NDFI'],
         "region": geometry,
-        "sensors": {"l4": True, "l5": True, "l7": True, "l8": True}
+        "sensors": sensors # {"l4": True, "l5": True, "l7": True, "l8": True}
     })
 
     def myimageMapper(img):
@@ -626,6 +626,95 @@ def getDegradationPlotsByPoint(geometry, start, end, band):
     indexCollection2 = lsd.aggregate_array('indexValue')
     values = indexCollection2.getInfo()
     return values
+
+def mosaicByDate(imcol):
+    # imcol: An image collection
+    # returns: An image collection
+    imlist = imcol.toList(imcol.size())
+
+    def udatesmapper(im):
+        return ee.Image(im).date().format("YYYY-MM-dd")
+    unique_dates = imlist.map(udatesmapper).distinct()
+
+    def mosaicmapper(d):
+        d = ee.Date(d)
+        im = imcol.filterDate(d, d.advance(1, "day")).mosaic()
+        return im.set("system:time_start", d.millis(), "system:id", d.format("YYYY-MM-dd"))
+
+    mosaic_imlist = unique_dates.map(mosaicmapper)
+
+    return ee.ImageCollection(mosaic_imlist)
+
+
+def getLatestImageTileUrl(imageCollection, visParams):
+    ic = ee.ImageCollection(imageCollection) \
+        .filterBounds(ee.Geometry.Polygon([[-91.34029931757813, 14.897852537402175],[-91.34029931757813, 14.529926456359712],[-91.06152124140625, 14.529926456359712],[-91.06152124140625, 14.897852537402175]])) \
+        .sort('system:time_start', False).limit(10)
+
+    #logger.error(str(ic.first().get('system:time_start').getInfo()))
+
+
+    #logger.error(str(ic.first().get('system:index').getInfo()))
+    most_current = ee.Date(ic.first().get('system:time_start')).format('YYYY-MM-dd')
+    #logger.error(str(most_current.getInfo()))
+
+    first = ic.filterDate(most_current, ee.Date(most_current).advance(1, "day")).mosaic()
+
+    iobj = first.getMapId(visParams)
+
+    videoArgs = {
+        "dimensions": 128,
+        "framesPerSecond": 3,
+        "region": ee.Geometry.Polygon([[-91.3156, 14.58], [-91.0835, 14.58], [-91.0835, 14.78], [-91.3156, 14.78], [-91.3156, 14.58]]),
+        "crs": "EPSG:3857"
+    };
+
+    merged_dict = {**visParams, **videoArgs}
+
+
+    values = {
+        "url": iobj['tile_fetcher'].url_format,
+        "count": str(ic.size().getInfo()),
+        "animation": mosaicByDate(ic).getVideoThumbURL(merged_dict),
+        "date": str(most_current.getInfo())
+    }
+    return values
+
+def getRangedImageTileUrl(imageCollection, visParams, dfrom, dto):
+    ic = ee.ImageCollection(imageCollection) \
+        .filterDate(dfrom, dto) \
+        .filterBounds(ee.Geometry.Polygon([[-91.34029931757813, 14.897852537402175],[-91.34029931757813, 14.529926456359712],[-91.06152124140625, 14.529926456359712],[-91.06152124140625, 14.897852537402175]])) \
+        .sort('system:time_start', False).limit(10)
+
+    #logger.error(str(ic.first().get('system:time_start').getInfo()))
+
+
+    #logger.error(str(ic.first().get('system:index').getInfo()))
+    most_current = ee.Date(ic.first().get('system:time_start')).format('YYYY-MM-dd')
+    #logger.error(str(most_current.getInfo()))
+
+    first = ic.filterDate(most_current, ee.Date(most_current).advance(1, "day")).mosaic()
+
+    iobj = first.getMapId(visParams)
+
+    videoArgs = {
+        "dimensions": 128,
+        "framesPerSecond": 3,
+        "region": ee.Geometry.Polygon([[-91.3156, 14.58], [-91.0835, 14.58], [-91.0835, 14.78], [-91.3156, 14.78], [-91.3156, 14.58]]),
+        "crs": "EPSG:3857"
+    };
+
+    merged_dict = {**visParams, **videoArgs}
+
+
+    values = {
+        "url": iobj['tile_fetcher'].url_format,
+        "count": str(ic.size().getInfo()),
+        "animation": mosaicByDate(ic).getVideoThumbURL(merged_dict),
+        "date": str(most_current.getInfo())
+    }
+    return values
+
 
 def getImagePlot(iCol, region, point, bandName, position):
     # Make time series plot from image collection

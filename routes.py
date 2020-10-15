@@ -9,7 +9,8 @@ from flask_cors import CORS, cross_origin
 import logging
 from logging.handlers import RotatingFileHandler
 import urllib
-
+import distutils
+from distutils import util
 
 logger = logging.getLogger(__name__)
 handler = RotatingFileHandler(
@@ -1184,20 +1185,36 @@ def getFiltered(collectionName, json, simpleCompositVariable):
     return filteredImageCompositeToMapId(collectionName, visParams, dateFrom, dateTo, cloudLessThan, simpleCompositVariable)
 
 
-@gee_gateway.route('/getPlanetTile', methods=['POST'])
+@gee_gateway.route('/getPlanetTile', methods=['POST', 'GET'])
 def getPlanetTile():
     """ To do: add definition """
     values = {}
     try:
-        json = request.get_json()
-        apiKey = json.get('apiKey')
-        geometry = json.get('geometry')
-        start = json.get('dateFrom')
-        end = json.get('dateTo', None)
-        layerCount = json.get('layerCount', 1)
-        itemTypes = json.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
-        values = getPlanetMapID(apiKey, geometry, start,
-                                end, layerCount, itemTypes)
+        if request.method == 'POST':
+            logger.error("inside POST Planet");
+            jsono = request.get_json()
+            apiKey = jsono.get('apiKey')
+            logger.error("API: " + apikey)
+            geometry = jsono.get('geometry')
+            start = jsono.get('dateFrom')
+            end = jsono.get('dateTo', None)
+            layerCount = jsono.get('layerCount', 1)
+            itemTypes = jsono.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
+            buffer = int(jsono.get('buffer', 0.5))
+            addsimilar = bool(distutils.util.strtobool(jsono.get('addsimilar', 'True')))
+            values = getPlanetMapID(apiKey, geometry, start,end, layerCount, itemTypes, buffer, addsimilar)
+
+        else:
+            #request.args.get if get
+            apiKey = request.args.get('apiKey')
+            geometry = json.loads(request.args.get('geometry'))
+            start = request.args.get('dateFrom')
+            end = request.args.get('dateTo', None)
+            layerCount = int(request.args.get('layerCount', 1))
+            itemTypes = request.args.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
+            buffer = int(request.args.get('buffer', 0.5))
+            addsimilar = bool(distutils.util.strtobool(request.args.get('addsimilar', 'True')))
+            values = getPlanetMapID(apiKey, geometry, start,end, layerCount, itemTypes, buffer, addsimilar)
     except Exception as e:
         logger.error(str(e))
         values = {
@@ -1250,16 +1267,27 @@ def getActualCollection(name):
 def getImagePlotDegradition():
     values = {}
     try:
+        logger.error("about to get json")
         json = request.get_json()
+        logger.error("got json")
         if json:
+            logger.error("got json")
             geometry = json.get('geometry')
+            logger.error("got geom")
             start = json.get('start')
+            logger.error("got start")
             end = json.get('end')
+            logger.error("got end")
             band = json.get('band', 'NDFI')
+            logger.error("got band")
             dataType = json.get('dataType', 'landsat')
+            logger.error("got dataType")
+            logger.error("About to set Sensors")
+            sensors = json.get('sensors',{"l4": True, "l5": True, "l7": True, "l8": True})
+            logger.error("Sensors are set")
             if dataType == 'landsat':
                 values = {
-                    'timeseries': getDegradationPlotsByPoint(geometry, start, end, band)
+                    'timeseries': getDegradationPlotsByPoint(geometry, start, end, band, sensors)
                 }
             else:
                 values = {
@@ -1312,6 +1340,40 @@ def getDegraditionTileUrl():
         logger.error(str(e))
         values = {
             'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+@gee_gateway.route('/getLatestImage', methods=['POST'])
+def getLatestImage():
+    values = {}
+    try:
+        json = request.get_json()
+        if json:
+            imageCollection = json.get('imageCollection', "LANDSAT/LC08/C01/T1_TOA") # l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA')
+            visParams = json.get('visParams', {"bands": "B4,B3,B2", "max": "0.3"})
+            values = getLatestImageTileUrl(imageCollection,visParams)
+    except GEEException as e:
+        logger.error(e.message)
+        values = {
+            'errMsg': e.message
+        }
+    return jsonify(values), 200
+
+@gee_gateway.route('/getRangedImage', methods=['POST'])
+def getRangedImage():
+    values = {}
+    try:
+        json = request.get_json()
+        if json:
+            imageCollection = json.get('imageCollection', "LANDSAT/LC08/C01/T1_TOA") # l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA')
+            visParams = json.get('visParams', {"bands": "B4,B3,B2", "max": "0.3"})
+            dfrom = json.get('dateFrom', None)
+            dto = json.get('dateTo', None)
+            values = getRangedImageTileUrl(imageCollection,visParams, dfrom, dto)
+    except GEEException as e:
+        logger.error(e.message)
+        values = {
+            'errMsg': e.message
         }
     return jsonify(values), 200
 
