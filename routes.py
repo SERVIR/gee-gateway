@@ -49,13 +49,9 @@ def index():
 @gee_gateway.route('/image', methods=['POST'])
 def image():
     """ Return
-
-    .. :quickref: Image; Get the MapID of a EE Image.
-
+    .. :quickref: Image; Get the xyz map tile url of a EE Image.
     **Example request**:
-
     .. code-block:: javascript
-
         {
             imageName: "XXX",
             visParams: {
@@ -68,12 +64,9 @@ def image():
         }
 
     **Example response**:
-
     .. code-block:: javascript
-
         {
-            mapid: "XXX",
-            token: "XXX"
+            url: "https://earthengine.googleapis.com/v1alpha/projects/earthengine-legacy/maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -569,7 +562,6 @@ def timeSeriesIndex2():
         }
 
     :reqheader Accept: application/json
-    :<json String collectionName: name of the image collection
     :<json String index: name of the index:  (e.g. NDVI, NDWI, NVI)
     :<json Float scale: scale in meters of the projection
     :<json Array polygon: the region over which to reduce data
@@ -587,10 +579,10 @@ def timeSeriesIndex2():
             if geometry:
                 indexName = json.get('indexName', 'NDVI')
                 scale = float(json.get('scale', 30))
+                reducer = json.get('reducer', 'median')
                 dateFrom = json.get('dateFromTimeSeries', None)
                 dateTo = json.get('dateToTimeSeries', None)
-                timeseries = getTimeSeriesByIndex2(
-                    indexName, scale, geometry, dateFrom, dateTo)
+                timeseries = getTimeSeriesByIndex2(indexName, scale, geometry, dateFrom, dateTo, reducer)
                 values = {
                     'timeseries': timeseries
                 }
@@ -653,10 +645,11 @@ def timeSeriesIndex3():
             if geometry:
                 indexName = json.get('indexName', 'NDVI')
                 scale = float(json.get('scale', 30))
+                reducer = json.get('reducer', None)
                 dateFrom = json.get('dateFrom', None)
                 dateTo = json.get('dateTo', None)
                 timeseries = getTimeSeriesByIndex2(
-                    indexName, scale, geometry, dateFrom, dateTo)
+                    indexName, scale, geometry, dateFrom, dateTo, reducer)
                 values = {
                     'timeseries': timeseries
                 }

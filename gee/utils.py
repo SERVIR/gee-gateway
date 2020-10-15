@@ -11,6 +11,7 @@ import numpy as np
 import sys
 import gee.inputs
 
+# Setup Logging
 logger = logging.getLogger(__name__)
 handler = RotatingFileHandler('gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
 logger.addHandler(handler)
@@ -39,14 +40,15 @@ def imageToMapId(imageName, visParams={}):
         eeImage = ee.Image(imageName)
         mapId = eeImage.getMapId(visParams)
         logger.error('******imageToMapId complete************')
-        values = {
-            'mapid': mapId['mapid'],
-            'token': mapId['token'],
+        return {
             'url': mapId['tile_fetcher'].url_format
         }
     except EEException as e:
         logger.error("******imageToMapId error************", sys.exc_info()[0])
-    return values
+        return {
+            'errMsg': str(sys.exc_info()[0])
+        }
+
 
 def firstImageInMosaicToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None):
     """  """
@@ -441,7 +443,7 @@ def getTimeSeriesByIndex(indexName, scale, coords=[], dateFrom=None, dateTo=None
             raise GEEException(sys.exc_info()[0])
     return out
 
-def getTimeSeriesByIndex2(indexName, scale, coords=[], dateFrom=None, dateTo=None):
+def getTimeSeriesByIndex2(indexName, scale, coords=[], dateFrom=None, dateTo=None, reducer="median"):
     """  """
     bandsByCollection = {
         'LANDSAT/LC08/C01/T1_TOA': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
@@ -503,7 +505,14 @@ def getTimeSeriesByIndex2(indexName, scale, coords=[], dateFrom=None, dateTo=Non
             return ee.ImageCollection(name).filterBounds(geometry).map(toIndexWithTimeStart, True)
     def reduceRegion(image):
         """  """
-        reduced = image.reduceRegion(ee.Reducer.median(), geometry=geometry, scale=scale, maxPixels=1e6)
+        if reducer == "mean":
+            reduced = image.reduceRegion(ee.Reducer.mean(), geometry=geometry, scale=scale, maxPixels=1e6)
+        elif reducer == "min":
+            reduced = image.reduceRegion(ee.Reducer.min(), geometry=geometry, scale=scale, maxPixels=1e6)
+        elif reducer == "max":
+            reduced = image.reduceRegion(ee.Reducer.max(), geometry=geometry, scale=scale, maxPixels=1e6)
+        else:
+            reduced = image.reduceRegion(ee.Reducer.median(), geometry=geometry, scale=scale, maxPixels=1e6)
         return ee.Feature(None, {
             'index': reduced.get('index'),
             'timeIndex': [image.get('system:time_start'), reduced.get('index')]
