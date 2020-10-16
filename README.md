@@ -30,6 +30,8 @@ deactivate
 
 ## CONFIGURATION
 
+### CONFIG FILES
+
 Edit the gee-gateway configuration file `gee-gateway/config.py`
 
 Copy and configure the nginx config file `gee-gateway/nginx_files/nginx.conf` into `/etc/nginx/nginx.conf`
@@ -50,15 +52,21 @@ Copy empire service file `gee-gateway/nginx_files/emperor.uwsgi.service` to `/et
 sudo cp nginx_files/emperor.uwsgi.service /etc/systemd/system/emperor.uwsgi.service
 ```
 
-## PERMISSIONS
+### PERMISSIONS
 
 Set the owner of the gee-gateway folder to the same as uid/gid in gee-gateway.ini
 ```bash
 sudo usermod -a -G ceo www-data
-sudo chown -R www-data:www-data /ceo/gee-venv/
+sudo chown -R www-data:ceo /ceo/gee-venv/
 ```
 
-## EXECUTION
+### HTTPS/HTTP
+
+TODO, fill out.
+
+HTTP access for 127.0.0.1 is required when running next to ceo.
+
+### EXECUTION
 
 Disable built in emperor service for Ubuntu
 
@@ -83,31 +91,12 @@ sudo systemctl stop nginx emperor.uwsgi
 sudo systemctl restart nginx emperor.uwsgi
 ```
 
-## USAGE
+## USE
 
-```bash
-usage: run.py [-h] [--gmaps_api_key GMAPS_API_KEY] [--ee_account EE_ACCOUNT]
-              [--ee_key_path EE_KEY_PATH]
+Navigate to https://ceo.sig-gis.com:8888/ to interact with the web ui.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --gmaps_api_key GMAPS_API_KEY
-                        Google Maps API key
-  --ee_account EE_ACCOUNT
-                        Google Earth Engine account
-  --ee_key_path EE_KEY_PATH
-                        Google Earth Engine key path
-```
+Have running alongside CEO.
 
-## DOCUMENTATION
+curl https://ceodev.servirglobal.net:8888/timeSeriesIndex -d '{"collectionNameTimeSeries":"LANDSAT/LC8_L1T_32DAY_NDWI","geometry":[[98.6270686247256,12.804422919455547],[98.62753901527437,12.804422919455547],[98.62753901527437,12.804714380460211],[98.6270686247256,12.804714380460211],[98.6270686247256,12.804422919455547]],"indexName":"NDWI","dateFromTimeSeries":"2015-01-01","dateToTimeSeries":"2017-12-31","reducer":"","scale":30,"point":[98.62730382,12.80456865],"start":"","end":"","band":"","dataType":""}'
 
-```bash
-pip install sphinx
-pip install sphinxcontrib-httpdomain
-```
-
-From project root directory
-
-```bash
-sphinx-build -aE -b html . static/docs
-```
+curl https://ceodev.servirglobal.net/geo-dash/gateway-request -d '{"collectionNameTimeSeries":"LANDSAT/LC8_L1T_32DAY_NDWI","geometry":[[98.6270686247256,12.804422919455547],[98.62753901527437,12.804422919455547],[98.62753901527437,12.804714380460211],[98.6270686247256,12.804714380460211],[98.6270686247256,12.804422919455547]],"indexName":"NDWI","dateFromTimeSeries":"2015-01-01","dateToTimeSeries":"2017-12-31","reducer":"","scale":30,"path":"timeSeriesIndex","point":[98.62730382,12.80456865],"start":"","end":"","band":"","dataType":""}'
