@@ -11,6 +11,7 @@ import numpy as np
 import sys
 import gee.inputs
 
+# Setup Logging
 logger = logging.getLogger(__name__)
 handler = RotatingFileHandler('gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
 logger.addHandler(handler)
@@ -39,14 +40,15 @@ def imageToMapId(imageName, visParams={}):
         eeImage = ee.Image(imageName)
         mapId = eeImage.getMapId(visParams)
         logger.error('******imageToMapId complete************')
-        values = {
-            'mapid': mapId['mapid'],
-            'token': mapId['token'],
+        return {
             'url': mapId['tile_fetcher'].url_format
         }
     except EEException as e:
         logger.error("******imageToMapId error************", sys.exc_info()[0])
-    return values
+        return {
+            'errMsg': str(sys.exc_info()[0])
+        }
+
 
 def firstImageInMosaicToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None):
     """  """
@@ -441,7 +443,7 @@ def getTimeSeriesByIndex(indexName, scale, coords=[], dateFrom=None, dateTo=None
             raise GEEException(sys.exc_info()[0])
     return out
 
-def getTimeSeriesByIndex2(indexName, scale, coords=[], dateFrom=None, dateTo=None):
+def getTimeSeriesByIndex2(indexName, scale, coords=[], dateFrom=None, dateTo=None, reducer="median"):
     """  """
     bandsByCollection = {
         'LANDSAT/LC08/C01/T1_TOA': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
@@ -503,7 +505,14 @@ def getTimeSeriesByIndex2(indexName, scale, coords=[], dateFrom=None, dateTo=Non
             return ee.ImageCollection(name).filterBounds(geometry).map(toIndexWithTimeStart, True)
     def reduceRegion(image):
         """  """
-        reduced = image.reduceRegion(ee.Reducer.median(), geometry=geometry, scale=scale, maxPixels=1e6)
+        if reducer == "mean":
+            reduced = image.reduceRegion(ee.Reducer.mean(), geometry=geometry, scale=scale, maxPixels=1e6)
+        elif reducer == "min":
+            reduced = image.reduceRegion(ee.Reducer.min(), geometry=geometry, scale=scale, maxPixels=1e6)
+        elif reducer == "max":
+            reduced = image.reduceRegion(ee.Reducer.max(), geometry=geometry, scale=scale, maxPixels=1e6)
+        else:
+            reduced = image.reduceRegion(ee.Reducer.median(), geometry=geometry, scale=scale, maxPixels=1e6)
         return ee.Feature(None, {
             'index': reduced.get('index'),
             'timeIndex': [image.get('system:time_start'), reduced.get('index')]
@@ -541,20 +550,8 @@ def getDegraditionTileUrlByDateS1(geometry, date, visParams):
 
     start = befDate.strftime('%Y-%m-%d')
     end = aftDate.strftime('%Y-%m-%d')
-    filtereddate = sentinel1Data.filterDate(start,end)
 
-    logger.error("filtereddate Size: " + str(filtereddate.size().getInfo()))
-    if filtereddate.size().getInfo() == 0:
-        logger.error("adjusting date range")
-        befDate = imDate - datetime.timedelta(days=2)
-        aftDate = imDate + datetime.timedelta(days=2)
-        logger.error("New range" + befDate.strftime('%Y-%m-%d') + " - " + aftDate.strftime('%Y-%m-%d'))
-        filtereddate = sentinel1Data.filterDate(befDate.strftime('%Y-%m-%d'),aftDate.strftime('%Y-%m-%d'))
-        logger.error("filtereddate Size after: " + str(filtereddate.size().getInfo()))
-
-    logger.error("filtereddate Size out of block: " + str(filtereddate.size().getInfo()))
-
-    selectedImage = filtereddate.first()
+    selectedImage = sentinel1Data.filterDate(start,end).first()
 
     selectedImage = ee.Image(selectedImage)
 
@@ -563,10 +560,8 @@ def getDegraditionTileUrlByDateS1(geometry, date, visParams):
 
 def getDegradationPlotsByPointS1(geometry, start, end, band):
     if isinstance(geometry[0], list):
-        logger.error("it actually was a geometry")
         geometry = ee.Geometry.Polygon(geometry)
     else:
-        logger.error("it thinks it's a point")
         geometry = ee.Geometry.Point(geometry)
 
     sentinel1Data = gee.inputs.getS1Alt({
@@ -589,39 +584,25 @@ def getDegraditionTileUrlByDate(geometry, date, visParams):
     imDate = datetime.datetime.strptime(date, "%Y-%m-%d")
     befDate = imDate - datetime.timedelta(days=1)
     aftDate = imDate + datetime.timedelta(days=1)
-    landsatData = None
+
     if isinstance(geometry[0], list):
         geometry = ee.Geometry.Polygon(geometry)
     else:
         geometry = ee.Geometry.Point(geometry)
-    try:
-        landsatData = gee.inputs.getLandsat({
-        	"start": befDate.strftime('%Y-%m-%d'),
-        	"end": aftDate.strftime('%Y-%m-%d'),
-        	"targetBands": ['RED','GREEN','BLUE','SWIR1','NIR'],
-        	"region": geometry,
-        	"sensors": {"l4": False, "l5": False, "l7": False, "l8": True}
-        })
-    except:
-        befDate = imDate - datetime.timedelta(days=2)
-        aftDate = imDate + datetime.timedelta(days=2)
-        logger.error("New range" + befDate.strftime('%Y-%m-%d') + " - " + aftDate.strftime('%Y-%m-%d'))
-        landsatData = gee.inputs.getLandsat({
-        	"start": befDate.strftime('%Y-%m-%d'),
-        	"end": aftDate.strftime('%Y-%m-%d'),
-        	"targetBands": ['RED','GREEN','BLUE','SWIR1','NIR'],
-        	"region": geometry,
-        	"sensors": {"l4": False, "l5": False, "l7": False, "l8": True}
-        })
-
-
+    landsatData = gee.inputs.getLandsat({
+        "start": befDate.strftime('%Y-%m-%d'),
+        "end": aftDate.strftime('%Y-%m-%d'),
+        "targetBands": ['RED','GREEN','BLUE','SWIR1','NIR'],
+        "region": geometry,
+        "sensors": {"l4": False, "l5": False, "l7": False, "l8": True}
+    })
 
     selectedImage = landsatData.first()
     unmasked = ee.Image(selectedImage).multiply(10000).toInt16().unmask()
     mapparams = unmasked.getMapId(visParams)
     return mapparams['tile_fetcher'].url_format
 
-def getDegradationPlotsByPoint(geometry, start, end, band):
+def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
     if isinstance(geometry[0], list):
         geometry = ee.Geometry.Polygon(geometry)
     else:
@@ -631,7 +612,7 @@ def getDegradationPlotsByPoint(geometry, start, end, band):
         "end": end,
         "targetBands": [band], #['SWIR1','NIR','RED','GREEN','BLUE','SWIR2','NDFI'],
         "region": geometry,
-        "sensors": {"l4": True, "l5": True, "l7": True, "l8": True}
+        "sensors": sensors # {"l4": True, "l5": True, "l7": True, "l8": True}
     })
 
     def myimageMapper(img):
@@ -645,6 +626,95 @@ def getDegradationPlotsByPoint(geometry, start, end, band):
     indexCollection2 = lsd.aggregate_array('indexValue')
     values = indexCollection2.getInfo()
     return values
+
+def mosaicByDate(imcol):
+    # imcol: An image collection
+    # returns: An image collection
+    imlist = imcol.toList(imcol.size())
+
+    def udatesmapper(im):
+        return ee.Image(im).date().format("YYYY-MM-dd")
+    unique_dates = imlist.map(udatesmapper).distinct()
+
+    def mosaicmapper(d):
+        d = ee.Date(d)
+        im = imcol.filterDate(d, d.advance(1, "day")).mosaic()
+        return im.set("system:time_start", d.millis(), "system:id", d.format("YYYY-MM-dd"))
+
+    mosaic_imlist = unique_dates.map(mosaicmapper)
+
+    return ee.ImageCollection(mosaic_imlist)
+
+
+def getLatestImageTileUrl(imageCollection, visParams):
+    ic = ee.ImageCollection(imageCollection) \
+        .filterBounds(ee.Geometry.Polygon([[-91.34029931757813, 14.897852537402175],[-91.34029931757813, 14.529926456359712],[-91.06152124140625, 14.529926456359712],[-91.06152124140625, 14.897852537402175]])) \
+        .sort('system:time_start', False).limit(10)
+
+    #logger.error(str(ic.first().get('system:time_start').getInfo()))
+
+
+    #logger.error(str(ic.first().get('system:index').getInfo()))
+    most_current = ee.Date(ic.first().get('system:time_start')).format('YYYY-MM-dd')
+    #logger.error(str(most_current.getInfo()))
+
+    first = ic.filterDate(most_current, ee.Date(most_current).advance(1, "day")).mosaic()
+
+    iobj = first.getMapId(visParams)
+
+    videoArgs = {
+        "dimensions": 128,
+        "framesPerSecond": 3,
+        "region": ee.Geometry.Polygon([[-91.3156, 14.58], [-91.0835, 14.58], [-91.0835, 14.78], [-91.3156, 14.78], [-91.3156, 14.58]]),
+        "crs": "EPSG:3857"
+    };
+
+    merged_dict = {**visParams, **videoArgs}
+
+
+    values = {
+        "url": iobj['tile_fetcher'].url_format,
+        "count": str(ic.size().getInfo()),
+        "animation": mosaicByDate(ic).getVideoThumbURL(merged_dict),
+        "date": str(most_current.getInfo())
+    }
+    return values
+
+def getRangedImageTileUrl(imageCollection, visParams, dfrom, dto):
+    ic = ee.ImageCollection(imageCollection) \
+        .filterDate(dfrom, dto) \
+        .filterBounds(ee.Geometry.Polygon([[-91.34029931757813, 14.897852537402175],[-91.34029931757813, 14.529926456359712],[-91.06152124140625, 14.529926456359712],[-91.06152124140625, 14.897852537402175]])) \
+        .sort('system:time_start', False).limit(10)
+
+    #logger.error(str(ic.first().get('system:time_start').getInfo()))
+
+
+    #logger.error(str(ic.first().get('system:index').getInfo()))
+    most_current = ee.Date(ic.first().get('system:time_start')).format('YYYY-MM-dd')
+    #logger.error(str(most_current.getInfo()))
+
+    first = ic.filterDate(most_current, ee.Date(most_current).advance(1, "day")).mosaic()
+
+    iobj = first.getMapId(visParams)
+
+    videoArgs = {
+        "dimensions": 128,
+        "framesPerSecond": 3,
+        "region": ee.Geometry.Polygon([[-91.3156, 14.58], [-91.0835, 14.58], [-91.0835, 14.78], [-91.3156, 14.78], [-91.3156, 14.58]]),
+        "crs": "EPSG:3857"
+    };
+
+    merged_dict = {**visParams, **videoArgs}
+
+
+    values = {
+        "url": iobj['tile_fetcher'].url_format,
+        "count": str(ic.size().getInfo()),
+        "animation": mosaicByDate(ic).getVideoThumbURL(merged_dict),
+        "date": str(most_current.getInfo())
+    }
+    return values
+
 
 def getImagePlot(iCol, region, point, bandName, position):
     # Make time series plot from image collection
