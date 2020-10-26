@@ -7,7 +7,6 @@ import logging
 import logging.config
 from logging.handlers import RotatingFileHandler
 import math
-import numpy as np
 import sys
 import gee.inputs
 
@@ -60,6 +59,7 @@ def firstImageInMosaicToMapId(collectionName, visParams={}, dateFrom=None, dateT
         eeFirstImage = ee.Image(eeCollection.first());
         values = imageToMapId(eeFirstImage, visParams)
     except EEException as e:
+        logger.error("******firstImageInMosaicToMapId error************", sys.exc_info()[0])
         raise GEEException(sys.exc_info()[0])
     return values
 
@@ -94,7 +94,7 @@ def firstCloudFreeImageInMosaicToMapId(collectionName, visParams={}, dateFrom=No
         if (dateFrom and dateTo):
             eeFilterDate = ee.Filter.date(dateFrom, dateTo)
             eeCollection = eeCollection.filter(eeFilterDate)
-        eeFirstImage = ee.Image(eeCollection.first());
+        eeFirstImage = ee.Image(eeCollection.mosaic());
         try:
             if(skipCloudMask == False):
                 sID = ''
@@ -1267,4 +1267,4 @@ def getTsTimeSeriesForPointByTargetDay(point, day, startYear=1985, endYear=None)
     )
 
     return getSpectralsForPoint(ee.ImageCollection(images), ee.Geometry.Point(point))
-    # return getTimeSeriesForPoint(ee.Geometry.Point(point))
+    # return getTimeSeriesForPoint(ee.Geometry.Point

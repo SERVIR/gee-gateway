@@ -22,8 +22,8 @@ sudo apt install python3 python3-venv uwsgi uwsgi-emperor uwsgi-plugin-python3 n
 ```bash
 python3 -m venv --prompt gee-gateway /ceo/gee-venv/
 source /ceo/gee-venv/bin/activate
+git clone https://github.com/SERVIR/gee-gateway.git /ceo/gee-venv/
 pip install -r requirements.txt
-git clone https://github.com/openforis/collect-earth-online.git /ceo/gee-venv/
 sudo touch /ceo/gee-venv/uwsgi.log
 deactivate
 ```
