@@ -1,0 +1,126 @@
+Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2447, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1952, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1821, in handle_user_exception
+    reraise(exc_type, exc_value, tb)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\_compat.py", line 39, in reraise
+    raise value
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1948, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2242, in preprocess_request
+    rv = func()
+  File "C:\Users\washmall\Documents\websites\gee-gateway\routes.py", line 43, in before
+    initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+  File "C:\Users\washmall\Documents\websites\gee-gateway\gee\utils.py", line 24, in initialize
+    credentials = ee.ServiceAccountCredentials(ee_account, ee_key_path)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\ee\_helpers.py", line 55, in ServiceAccountCredentials
+    with open(key_file, 'r') as file_:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/openforis/nginx_temp/privatekeyCE.pem'
+Exception on /favicon.ico [GET]
+Traceback (most recent call last):
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2447, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1952, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1821, in handle_user_exception
+    reraise(exc_type, exc_value, tb)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\_compat.py", line 39, in reraise
+    raise value
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1948, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2242, in preprocess_request
+    rv = func()
+  File "C:\Users\washmall\Documents\websites\gee-gateway\routes.py", line 43, in before
+    initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+  File "C:\Users\washmall\Documents\websites\gee-gateway\gee\utils.py", line 24, in initialize
+    credentials = ee.ServiceAccountCredentials(ee_account, ee_key_path)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\ee\_helpers.py", line 55, in ServiceAccountCredentials
+    with open(key_file, 'r') as file_:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/openforis/nginx_temp/privatekeyCE.pem'
+Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2447, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1952, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1821, in handle_user_exception
+    reraise(exc_type, exc_value, tb)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\_compat.py", line 39, in reraise
+    raise value
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1948, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2242, in preprocess_request
+    rv = func()
+  File "C:\Users\washmall\Documents\websites\gee-gateway\routes.py", line 43, in before
+    initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+  File "C:\Users\washmall\Documents\websites\gee-gateway\gee\utils.py", line 24, in initialize
+    credentials = ee.ServiceAccountCredentials(ee_account, ee_key_path)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\ee\_helpers.py", line 55, in ServiceAccountCredentials
+    with open(key_file, 'r') as file_:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/openforis/nginx_temp/privatekeyCE.pem'
+Exception on /favicon.ico [GET]
+Traceback (most recent call last):
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2447, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1952, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1821, in handle_user_exception
+    reraise(exc_type, exc_value, tb)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\_compat.py", line 39, in reraise
+    raise value
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1948, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2242, in preprocess_request
+    rv = func()
+  File "C:\Users\washmall\Documents\websites\gee-gateway\routes.py", line 43, in before
+    initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+  File "C:\Users\washmall\Documents\websites\gee-gateway\gee\utils.py", line 24, in initialize
+    credentials = ee.ServiceAccountCredentials(ee_account, ee_key_path)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\ee\_helpers.py", line 55, in ServiceAccountCredentials
+    with open(key_file, 'r') as file_:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/openforis/nginx_temp/privatekeyCE.pem'
+Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2447, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1952, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1821, in handle_user_exception
+    reraise(exc_type, exc_value, tb)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\_compat.py", line 39, in reraise
+    raise value
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1948, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2242, in preprocess_request
+    rv = func()
+  File "C:\Users\washmall\Documents\websites\gee-gateway\routes.py", line 43, in before
+    initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+  File "C:\Users\washmall\Documents\websites\gee-gateway\gee\utils.py", line 24, in initialize
+    credentials = ee.ServiceAccountCredentials(ee_account, ee_key_path)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\ee\_helpers.py", line 55, in ServiceAccountCredentials
+    with open(key_file, 'r') as file_:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/openforis/nginx_temp/privatekeyCE.pem'
+Exception on /favicon.ico [GET]
+Traceback (most recent call last):
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2447, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1952, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1821, in handle_user_exception
+    reraise(exc_type, exc_value, tb)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\_compat.py", line 39, in reraise
+    raise value
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 1948, in full_dispatch_request
+    rv = self.preprocess_request()
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\flask\app.py", line 2242, in preprocess_request
+    rv = func()
+  File "C:\Users\washmall\Documents\websites\gee-gateway\routes.py", line 43, in before
+    initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+  File "C:\Users\washmall\Documents\websites\gee-gateway\gee\utils.py", line 24, in initialize
+    credentials = ee.ServiceAccountCredentials(ee_account, ee_key_path)
+  File "C:\Users\washmall\tethys\miniconda\envs\gee-gateway\lib\site-packages\ee\_helpers.py", line 55, in ServiceAccountCredentials
+    with open(key_file, 'r') as file_:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/openforis/nginx_temp/privatekeyCE.pem'

@@ -1,3 +1,5 @@
+from flask_cors import CORS
+
 from gee.gee_exception import GEEException
 from gee.utils import *
 from gee.inputs import *
@@ -14,8 +16,7 @@ import ast
 
 # test
 logger = logging.getLogger(__name__)
-handler = RotatingFileHandler(
-    'gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
+handler = RotatingFileHandler('gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
@@ -23,7 +24,7 @@ gee_gateway = Flask(__name__, instance_relative_config=True,
                     static_url_path="/static", static_folder="./static")
 gee_gateway.config.from_object('config')
 gee_gateway.config.from_pyfile('config.py', silent=True)
-
+CORS(gee_gateway)
 
 @gee_gateway.before_request
 def before():
