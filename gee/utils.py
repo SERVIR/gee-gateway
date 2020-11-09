@@ -386,10 +386,14 @@ def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[
             date = image.get('system:time_start')
             indexImage = ee.Image().set('indexValue', [ee.Number(date), indexValue])
             return indexImage
+        logger.error("b4 map")
         indexCollection1 = indexCollection.map(getIndex)
+        logger.error("mapped")
         indexCollection2 = indexCollection1.aggregate_array('indexValue')
+        logger.error("aggregated")
         values = indexCollection2.getInfo()
     except EEException as e:
+        logger.error(str(e))
         raise GEEException(sys.exc_info()[0])
     return values
 
