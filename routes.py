@@ -1,15 +1,12 @@
 from flask_cors import CORS
-
-from gee.gee_exception import GEEException
 from gee.utils import *
 from gee.inputs import *
-from gee.dates import *
-from gee.ccdc import *
 from planet.utils import *
 from flask import Flask, request, jsonify, render_template, json, current_app, send_file, make_response
 import logging
 from logging.handlers import RotatingFileHandler
 import urllib
+import urllib.parse
 import distutils
 from distutils import util
 import ast
@@ -25,6 +22,7 @@ gee_gateway = Flask(__name__, instance_relative_config=True,
 gee_gateway.config.from_object('config')
 gee_gateway.config.from_pyfile('config.py', silent=True)
 CORS(gee_gateway)
+
 
 @gee_gateway.before_request
 def before():
@@ -69,7 +67,7 @@ def image():
     **Example response**:
     .. code-block:: javascript
     {
-       url: "https://earthengine.googleapis.com/v1alpha/projects/earthengine-legacy/maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+       url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
     }
 
     :reqheader Accept: application/json
@@ -77,14 +75,16 @@ def image():
     :<json Object visParams: visualization parameters
     :resheader Content-Type: application/json
     """
-    values = {}
     try:
         jsonp = request.get_json()
         if jsonp:
-            image_name = jsonp.get('imageName', None)
-            vision_params = jsonp.get('visParams', {})
-            values = imageToMapId(image_name, vision_params)
-    except GEEException as e:
+            values = imageToMapId(
+                jsonp.get('imageName', None),
+                jsonp.get('visParams', {})
+            )
+        else:
+            raise Exception("invalid request type, please use json")
+    except Exception as e:
         logger.error(str(e))
         values = {
             'errMsg': str(e)
@@ -95,7 +95,7 @@ def image():
 @gee_gateway.route('/firstImageByMosaicCollection', methods=['POST'])
 def first_image_by_mosaic_collection():
     """
-    .. :quickref: firstImageByMosaicCollection; Get the MapID of a EE firstImageByMosaicCollection.
+    .. :quickref: firstImageByMosaicCollection; Get the xyz map tile url of a EE firstImageByMosaicCollection.
 
     **Example request**:
 
@@ -118,7 +118,7 @@ def first_image_by_mosaic_collection():
     .. code-block:: javascript
 
     {
-       url: "https://earthengine.googleapis.com/v1alpha/projects/earthengine-legacy/maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+       url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
     }
 
     :reqheader Accept: application/json
@@ -128,18 +128,22 @@ def first_image_by_mosaic_collection():
     :<json String dateTo: end date
     :resheader Content-Type: application/json
     """
-    values = {}
     try:
         if request.is_json:
             request_json = request.get_json()
             collection_name = request_json.get('collectionName', None)
             if collection_name:
-                vision_params = request_json.get('visParams', None)
-                date_from = request_json.get('dateFrom', None)
-                date_to = request_json.get('dateTo', None)
                 values = firstImageInMosaicToMapId(
-                    collection_name, vision_params, date_from, date_to)
-    except GEEException as e:
+                    collection_name,
+                    request_json.get('visParams', None),
+                    request_json.get('dateFrom', None),
+                    request_json.get('dateTo', None)
+                )
+            else:
+                raise Exception("invalid request type, please use json")
+        else:
+            raise Exception("invalid request type, please use json")
+    except Exception as e:
         logger.error(str(e))
         values = {
             'errMsg': str(e)
@@ -150,7 +154,7 @@ def first_image_by_mosaic_collection():
 @gee_gateway.route('/meanImageByMosaicCollections', methods=['POST'])
 def mean_image_by_mosaic_collections():
     """
-    .. :quickref: meanImageByMosaicCollections; Get the MapID of a EE meanImageByMosaicCollections.
+    .. :quickref: meanImageByMosaicCollections; Get the xyz map tile url of a EE meanImageByMosaicCollections.
 
     **Example request**:
 
@@ -173,8 +177,7 @@ def mean_image_by_mosaic_collections():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+           url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -184,18 +187,22 @@ def mean_image_by_mosaic_collections():
     :<json String dateTo: end date
     :resheader Content-Type: application/json
     """
-    values = {}
     try:
         request_json = request.get_json()
         if request_json:
             collection_name = request_json.get('collectionName', None)
             if collection_name:
-                vision_params = request_json.get('visParams', None)
-                date_from = request_json.get('dateFrom', None)
-                date_to = request_json.get('dateTo', None)
                 values = meanImageInMosaicToMapId(
-                    collection_name, vision_params, date_from, date_to)
-    except GEEException as e:
+                    collection_name,
+                    request_json.get('visParams', None),
+                    request_json.get('dateFrom', None),
+                    request_json.get('dateTo', None)
+                )
+            else:
+                raise Exception("invalid request type, please use json")
+        else:
+            raise Exception("invalid request type, please use json")
+    except Exception as e:
         logger.error(str(e))
         values = {
             'errMsg': str(e)
@@ -206,7 +213,7 @@ def mean_image_by_mosaic_collections():
 @gee_gateway.route('/cloudMaskImageByMosaicCollection', methods=['POST'])
 def cloud_mask_image_by_mosaic_collection():
     """
-    .. :quickref: cloudMaskImageByMosaicCollection; Get the MapID of a EE cloudMaskImageByMosaicCollection.
+    .. :quickref: cloudMaskImageByMosaicCollection; Get the xyz map tile url of a EE cloudMaskImageByMosaicCollection.
 
     **Example request**:
 
@@ -228,8 +235,7 @@ def cloud_mask_image_by_mosaic_collection():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -239,17 +245,21 @@ def cloud_mask_image_by_mosaic_collection():
     :<json String dateTo: end date
     :resheader Content-Type: application/json
     """
-    values = {}
     try:
         request_json = request.get_json()
         if request_json:
             collection_name = request_json.get('collectionName', None)
             if collection_name:
-                vision_params = request_json.get('visParams', None)
-                date_from = request_json.get('dateFrom', None)
-                date_to = request_json.get('dateTo', None)
                 values = firstCloudFreeImageInMosaicToMapId(
-                    collection_name, vision_params, date_from, date_to)
+                    collection_name,
+                    request_json.get('visParams', None),
+                    request_json.get('dateFrom', None),
+                    request_json.get('dateTo', None)
+                )
+            else:
+                raise Exception("invalid request type, please use json")
+        else:
+            raise Exception("invalid request type, please use json")
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -261,7 +271,7 @@ def cloud_mask_image_by_mosaic_collection():
 @gee_gateway.route('/getCHIRPSImage', methods=['POST'])
 def get_chirps_image():
     """
-    .. :quickref: getCHIRPSImage; Get the MapID of a EE CHIRPS Image.
+    .. :quickref: getCHIRPSImage; Get the xyz map tile url of a EE CHIRPS Image.
 
     **Example request**:
 
@@ -277,8 +287,7 @@ def get_chirps_image():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+             url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -286,14 +295,16 @@ def get_chirps_image():
     :<json String dateTo: end date
     :resheader Content-Type: application/json
     """
-    values = {}
     try:
         request_json = request.get_json()
         if request_json:
-            date_from = request_json.get('dateFrom', None)
-            date_to = request_json.get('dateTo', None)
-            values = filteredImageInCHIRPSToMapId(date_from, date_to)
-    except GEEException as e:
+            values = filteredImageInCHIRPSToMapId(
+                request_json.get('dateFrom', None),
+                request_json.get('dateTo', None)
+            )
+        else:
+            raise Exception("invalid request type, please use json")
+    except Exception as e:
         logger.error(str(e))
         values = {
             'errMsg': str(e)
@@ -304,7 +315,7 @@ def get_chirps_image():
 @gee_gateway.route('/ImageCollectionbyIndex', methods=['POST'])
 def image_collection_by_index():
     """
-    .. :quickref: ImageCollectionbyIndex; Get the MapID of a EE LANDSAT ImageCollection by requested Index.
+    .. :quickref: ImageCollectionbyIndex; Get the xyz map tile url of a EE LANDSAT ImageCollection by requested Index.
 
     **Example request**:
 
@@ -321,8 +332,7 @@ def image_collection_by_index():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+            "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -409,7 +419,7 @@ def time_series_index():
                 date_to = request_json.get('dateToTimeSeries', None)
                 reducer = request_json.get('reducer', None)
                 timeseries = getTimeSeriesByCollectionAndIndex("MODIS/006/MOD13A2",
-                    index_name, scale, geometry, date_from, date_to, reducer)
+                                                               index_name, scale, geometry, date_from, date_to, reducer)
                 values = {
                     'timeseries': timeseries
                 }
@@ -470,12 +480,12 @@ def time_series_index2():
             if not geometry:
                 geometry = request_json.get('geometry', None)
             if geometry:
-                indexName = request_json.get('indexName', 'NDVI')
+                index_name = request_json.get('indexName', 'NDVI')
                 scale = float(request_json.get('scale', 30))
                 reducer = request_json.get('reducer', 'median')
-                dateFrom = request_json.get('dateFromTimeSeries', None)
-                dateTo = request_json.get('dateToTimeSeries', None)
-                timeseries = getTimeSeriesByIndex2(indexName, scale, geometry, dateFrom, dateTo, reducer)
+                date_from = request_json.get('dateFromTimeSeries', None)
+                date_to = request_json.get('dateToTimeSeries', None)
+                timeseries = getTimeSeriesByIndex2(index_name, scale, geometry, date_from, date_to, reducer)
                 values = {
                     'timeseries': timeseries
                 }
@@ -488,9 +498,10 @@ def time_series_index2():
 
 
 @gee_gateway.route('/timeSeriesIndex3', methods=['POST'])
-def timeSeriesIndex3():
+def time_series_index3():
     """
-    .. :quickref: TimeSeries3; Get the timeseries for a specific ImageCollection index, date range and a polygon OR a point
+    .. :quickref: TimeSeries3; Get the timeseries for a specific ImageCollection index,
+    ..            date range and a polygon OR a point
 
     **Example request**:
 
@@ -530,19 +541,19 @@ def timeSeriesIndex3():
     """
     values = {}
     try:
-        json = request.get_json()
-        if json:
-            geometry = json.get('polygon', None)  # deprecated
+        request_json = request.get_json()
+        if request_json:
+            geometry = request_json.get('polygon', None)  # deprecated
             if not geometry:
-                geometry = json.get('geometry', None)
+                geometry = request_json.get('geometry', None)
             if geometry:
-                indexName = json.get('indexName', 'NDVI')
-                scale = float(json.get('scale', 30))
-                reducer = json.get('reducer', None)
-                dateFrom = json.get('dateFrom', None)
-                dateTo = json.get('dateTo', None)
+                index_name = request_json.get('indexName', 'NDVI')
+                scale = float(request_json.get('scale', 30))
+                reducer = request_json.get('reducer', None)
+                date_from = request_json.get('dateFrom', None)
+                date_to = request_json.get('dateTo', None)
                 timeseries = getTimeSeriesByIndex2(
-                    indexName, scale, geometry, dateFrom, dateTo, reducer)
+                    index_name, scale, geometry, date_from, date_to, reducer)
                 values = {
                     'timeseries': timeseries
                 }
@@ -555,7 +566,7 @@ def timeSeriesIndex3():
 
 
 @gee_gateway.route('/timeSeriesForPoint', methods=['POST'])
-def timeSeriesForPoint():
+def time_series_for_point():
     """
     .. :quickref: TimeSeries ForPoint; Get the timeseries for LANDSAT, date range and a point
 
@@ -588,9 +599,9 @@ def timeSeriesForPoint():
     """
     values = {}
     try:
-        json = request.get_json()
-        if json:
-            geometry = json.get('point', None)
+        request_json = request.get_json()
+        if request_json:
+            geometry = request_json.get('point', None)
             if geometry:
                 timeseries = getTimeSeriesForPoint(geometry)
                 values = {
@@ -605,7 +616,7 @@ def timeSeriesForPoint():
 
 
 @gee_gateway.route('/timeSeriesAssetForPoint', methods=['POST'])
-def timeSeriesAssetForPoint():
+def time_series_asset_for_point():
     """
     .. :quickref: TimeSeries For predefined asset; Get the timeseries for a predefined EE asset, date range and a point
 
@@ -638,12 +649,12 @@ def timeSeriesAssetForPoint():
     """
     values = {}
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            geometry = json.get('point', None)
-            dateFrom = json.get('dateFromTimeSeries', None)
-            dateTo = json.get('dateToTimeSeries', None)
-            timeseries = getTimeSeriesAssetForPoint(geometry, dateFrom, dateTo)
+            geometry = request_json.get('point', None)
+            date_from = request_json.get('dateFromTimeSeries', None)
+            date_to = request_json.get('dateToTimeSeries', None)
+            timeseries = getTimeSeriesAssetForPoint(geometry, date_from, date_to)
             print("have vals")
             values = {
                 'timeseries': timeseries
@@ -660,7 +671,7 @@ def timeSeriesAssetForPoint():
 
 
 @gee_gateway.route('/timeSeriesIndexGet', methods=['GET'])
-def timeSeriesIndexGet():
+def time_series_index_get():
     """
     .. :quickref: TimeSeries; Get the timeseries for a specific ImageCollection index, date range and polygon
 
@@ -700,18 +711,15 @@ def timeSeriesIndexGet():
     :<json String dateTo: end date
     :resheader Content-Type: application/json
     """
-    values = {}
     try:
-        collectionName = request.args.get('collectionNameTimeSeries', None)
-        polygon = ast.literal_eval(urllib.unquote(
+        polygon = ast.literal_eval(urllib.parse.unquote(
             request.args.get('polygon', None)).decode('utf8'))
-        indexName = request.args.get('indexName', 'NDVI')
+        index_name = request.args.get('indexName', 'NDVI')
         scale = float(request.args.get('scale', 30))
-        dateFrom = request.args.get('dateFromTimeSeries', None)
-        dateTo = request.args.get('dateToTimeSeries', None)
+        date_from = request.args.get('dateFromTimeSeries', None)
+        date_to = request.args.get('dateToTimeSeries', None)
         reducer = request.args.get('reducer', None)
-        timeseries = getTimeSeriesByIndex(
-            collectionName, indexName, scale, polygon, dateFrom, dateTo, reducer)
+        timeseries = getTimeSeriesByIndex(index_name, scale, polygon, date_from, date_to, reducer)
         values = {
             'timeseries': timeseries
         }
@@ -724,7 +732,7 @@ def timeSeriesIndexGet():
 
 
 @gee_gateway.route('/getStats', methods=['POST'])
-def getStats():
+def get_stats():
     """
     .. :quickref: getStats; Get the population and elevation for a polygon
 
@@ -752,11 +760,10 @@ def getStats():
     :resheader Content-Type: application/json
     """
     try:
-        values = {}
-        json = request.get_json()
-        paramType = json.get('paramType', None)
-        paramValue = json.get('paramValue', None)
-        values = getStatistics(paramType, paramValue)
+        request_json = request.get_json()
+        param_type = request_json.get('paramType', None)
+        param_value = request_json.get('paramValue', None)
+        values = getStatistics(param_type, param_value)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -766,15 +773,15 @@ def getStats():
 
 
 @gee_gateway.route('/asterMosaic', methods=['POST'])
-def asterMosaic():
+def aster_mosaic():
     values = {}
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            visParams = json.get('visParams', None)
-            dateFrom = json.get('dateFrom', None)
-            dateTo = json.get('dateTo', None)
-            values = getAsterMosaic(visParams, dateFrom, dateTo)
+            vis_params = request_json.get('visParams', None)
+            date_from = request_json.get('dateFrom', None)
+            date_to = request_json.get('dateTo', None)
+            values = getAsterMosaic(vis_params, date_from, date_to)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -784,15 +791,15 @@ def asterMosaic():
 
 
 @gee_gateway.route('/ndviChange', methods=['POST'])
-def ndviChange():
+def ndvi_change():
     values = {}
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            visParams = json.get('visParams', None)
-            yearFrom = json.get('yearFrom', None)
-            yearTo = json.get('yearTo', None)
-            values = getNdviChange(visParams, yearFrom, yearTo)
+            vis_params = request_json.get('visParams', None)
+            year_from = request_json.get('yearFrom', None)
+            year_to = request_json.get('yearTo', None)
+            values = getNdviChange(vis_params, year_from, year_to)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -802,9 +809,10 @@ def ndviChange():
 
 
 @gee_gateway.route('/Landsat5Filtered', methods=['POST'])
-def Landsat5Filtered():
+def landsat_5_filtered():
     """
-    .. :quickref: Landsat5Filtered; Get the MapID of a EE LANDSAT5 filtered ImageCollection by requested Index.
+    .. :quickref: Landsat5Filtered;
+    .. Get the xyz map tile url of a EE LANDSAT5 filtered ImageCollection by requested Index.
 
     **Example request**:
 
@@ -824,8 +832,7 @@ def Landsat5Filtered():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -839,9 +846,9 @@ def Landsat5Filtered():
     """
     values = {}
     try:
-        json = request.get_json()
-        if json:
-            values = getFiltered('LANDSAT/LT05/C01/T1', json, 50)
+        request_json = request.get_json()
+        if request_json:
+            values = get_filtered('LANDSAT/LT05/C01/T1', request_json, 50, False)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -851,9 +858,10 @@ def Landsat5Filtered():
 
 
 @gee_gateway.route('/Landsat7Filtered', methods=['POST'])
-def Landsat7Filtered():
+def landsat_7_filtered():
     """
-    .. :quickref: Landsat7Filtered; Get the MapID of a EE LANDSAT7 filtered ImageCollection by requested Index.
+    .. :quickref: Landsat7Filtered;
+    .. Get the xyz map tile url of a EE LANDSAT7 filtered ImageCollection by requested Index.
 
     **Example request**:
 
@@ -873,8 +881,7 @@ def Landsat7Filtered():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -888,9 +895,9 @@ def Landsat7Filtered():
     """
     values = {}
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            values = getFiltered('LANDSAT/LE07/C01/T1', json, 60)
+            values = get_filtered('LANDSAT/LE07/C01/T1', request_json, 60, False)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -900,9 +907,10 @@ def Landsat7Filtered():
 
 
 @gee_gateway.route('/Landsat8Filtered', methods=['POST'])
-def Landsat8Filtered():
+def landsat_8_filtered():
     """
-    .. :quickref: Landsat8Filtered; Get the MapID of a EE LANDSAT8 filtered ImageCollection by requested Index.
+    .. :quickref: Landsat8Filtered;
+    .. Get the xyz map tile url of a EE LANDSAT8 filtered ImageCollection by requested Index.
 
     **Example request**:
 
@@ -922,8 +930,7 @@ def Landsat8Filtered():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -937,9 +944,9 @@ def Landsat8Filtered():
     """
     values = {}
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            values = getFiltered('LANDSAT/LC08/C01/T1_RT', json, 50)
+            values = get_filtered('LANDSAT/LC08/C01/T1_RT', request_json, 50, False)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -949,9 +956,10 @@ def Landsat8Filtered():
 
 
 @gee_gateway.route('/FilteredSentinel', methods=['POST'])
-def FilteredSentinel():
+def filtered_sentinel():
     """
-    .. :quickref: FilteredSentinel; Get the MapID of a EE Sentinel filtered ImageCollection by requested Index.
+    .. :quickref: FilteredSentinel;
+    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
 
     **Example request**:
 
@@ -971,8 +979,7 @@ def FilteredSentinel():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -986,21 +993,9 @@ def FilteredSentinel():
     """
     values = {}
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            dateFrom = json.get('dateFrom', None)
-            dateTo = json.get('dateTo', None)
-            cloudLessThan = json.get('cloudLessThan', 90)
-            bands = json.get('bands', 'B4,B5,B3')
-            min = json.get('min', '0.03,0.01,0.05')
-            max = json.get('max', '0.45,0.5,0.4')
-            visParams = {
-                'min': min,
-                'max': max,
-                'bands': bands
-            }
-            values = filteredSentinelComposite(
-                visParams, dateFrom, dateTo, cloudLessThan)
+            values = get_filtered('', request_json, '', True)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -1010,9 +1005,10 @@ def FilteredSentinel():
 
 
 @gee_gateway.route('/ImageCollectionAsset', methods=['POST'])
-def ImageCollectionAsset():
+def image_collection_asset():
     """
-    .. :quickref: FilteredSentinel; Get the MapID of a EE Sentinel filtered ImageCollection by requested Index.
+    .. :quickref: FilteredSentinel;
+    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
 
     **Example request**:
 
@@ -1033,8 +1029,7 @@ def ImageCollectionAsset():
     .. code-block:: javascript
 
         {
-            mapid: "XXX",
-            token: "XXX"
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
         }
 
     :reqheader Accept: application/json
@@ -1045,15 +1040,14 @@ def ImageCollectionAsset():
     """
     values = {}
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            collection = ''
-            if 'imageName' in json:
-                collection = json.get('imageName', '')
+            if 'imageName' in request_json:
+                collection = request_json.get('imageName', '')
             else:
-                collection = json.get('ImageCollectionAsset', '')
-            visParams = json.get('visParams', {})
-            values = getImageCollectionAsset(collection, visParams)
+                collection = request_json.get('ImageCollectionAsset', '')
+            vis_params = request_json.get('visParams', {})
+            values = getImageCollectionAsset(collection, vis_params)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -1062,52 +1056,61 @@ def ImageCollectionAsset():
     return jsonify(values), 200
 
 
-def getFiltered(collectionName, json, simpleCompositVariable):
-    dateFrom = json.get('dateFrom', None)
-    dateTo = json.get('dateTo', None)
-    cloudLessThan = json.get('cloudLessThan', 90)
-    bands = json.get('bands', 'B4,B5,B3')
-    min = json.get('min', '0.03,0.01,0.05')
-    max = json.get('max', '0.45,0.5,0.4')
-    visParams = {
-        'min': min,
-        'max': max,
+def get_filtered(collection_name, request_json, simple_composit_variable, is_sentinel):
+    date_from = request_json.get('dateFrom', None)
+    date_to = request_json.get('dateTo', None)
+    cloud_less_than = request_json.get('cloudLessThan', 90)
+    bands = request_json.get('bands', 'B4,B5,B3')
+    band_min = request_json.get('min', '0.03,0.01,0.05')
+    band_max = request_json.get('max', '0.45,0.5,0.4')
+    vis_params = {
+        'min': band_min,
+        'max': band_max,
         'bands': bands
     }
-    return filteredImageCompositeToMapId(collectionName, visParams, dateFrom, dateTo, cloudLessThan,
-                                         simpleCompositVariable)
+    if is_sentinel:
+        return filteredSentinelComposite(vis_params,
+                                         date_from,
+                                         date_to,
+                                         cloud_less_than)
+    else:
+        return filteredImageCompositeToMapId(collection_name,
+                                             vis_params,
+                                             date_from,
+                                             date_to,
+                                             cloud_less_than,
+                                             simple_composit_variable)
 
 
 @gee_gateway.route('/getPlanetTile', methods=['POST', 'GET'])
-def getPlanetTile():
+def get_planet_tile():
     """ To do: add definition """
-    values = {}
     try:
         if request.method == 'POST':
-            logger.error("inside POST Planet");
-            jsono = request.get_json()
-            apiKey = jsono.get('apiKey')
-            logger.error("API: " + apiKey)
-            geometry = jsono.get('geometry')
-            start = jsono.get('dateFrom')
-            end = jsono.get('dateTo', None)
-            layerCount = jsono.get('layerCount', 1)
-            itemTypes = jsono.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
-            buffer = int(jsono.get('buffer', 0.5))
-            addsimilar = bool(distutils.util.strtobool(jsono.get('addsimilar', 'True')))
-            values = getPlanetMapID(apiKey, geometry, start, end, layerCount, itemTypes, buffer, addsimilar)
+            logger.error("inside POST Planet")
+            request_json = request.get_json()
+            api_key = request_json.get('apiKey')
+            logger.error("API: " + api_key)
+            geometry = request_json.get('geometry')
+            start = request_json.get('dateFrom')
+            end = request_json.get('dateTo', None)
+            layer_count = request_json.get('layerCount', 1)
+            item_types = request_json.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
+            buffer = int(request_json.get('buffer', 0.5))
+            add_similar = bool(distutils.util.strtobool(request_json.get('addsimilar', 'True')))
+            values = getPlanetMapID(api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
 
         else:
             # request.args.get if get
-            apiKey = request.args.get('apiKey')
+            api_key = request.args.get('apiKey')
             geometry = json.loads(request.args.get('geometry'))
             start = request.args.get('dateFrom')
             end = request.args.get('dateTo', None)
-            layerCount = int(request.args.get('layerCount', 1))
-            itemTypes = request.args.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
+            layer_count = int(request.args.get('layerCount', 1))
+            item_types = request.args.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
             buffer = int(request.args.get('buffer', 0.5))
-            addsimilar = bool(distutils.util.strtobool(request.args.get('addsimilar', 'True')))
-            values = getPlanetMapID(apiKey, geometry, start, end, layerCount, itemTypes, buffer, addsimilar)
+            add_similar = bool(distutils.util.strtobool(request.args.get('addsimilar', 'True')))
+            values = getPlanetMapID(api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
     except Exception as e:
         logger.error(str(e))
         values = {
@@ -1117,22 +1120,21 @@ def getPlanetTile():
 
 
 @gee_gateway.route('/getAvailableBands', methods=['POST'])
-def getAvailableBands():
+def get_available_bands():
     """ To do: add definition """
     logger.error("Debugging getAvailableBands")
-    values = {}
     try:
-        json = request.get_json()
-        if json:
-            imageCollectionName = json.get('imageCollection', None)
-            imageName = json.get('image', None)
-            if imageCollectionName is None:
-                values = listAvailableBands(imageName, True)
+        request_json = request.get_json()
+        if request_json:
+            image_collection_name = request_json.get('imageCollection', None)
+            image_name = request_json.get('image', None)
+            if image_collection_name is None:
+                values = listAvailableBands(image_name, True)
             else:
                 logger.error("getAvailableBands else")
-                actualName = getActualCollection(imageCollectionName)
-                logger.error(actualName + "spaces?")
-                values = listAvailableBands(actualName, False)
+                actual_name = get_actual_collection(image_collection_name)
+                logger.error(actual_name + "spaces?")
+                values = listAvailableBands(actual_name, False)
         else:
             raise Exception(
                 "Need either image or imageCollection parameter containing the full name")
@@ -1144,7 +1146,7 @@ def getAvailableBands():
     return jsonify(values), 200
 
 
-def getActualCollection(name):
+def get_actual_collection(name):
     if name == "LANDSAT5":
         return "LANDSAT/LT05/C01/T1"
     elif name == "LANDSAT7":
@@ -1158,28 +1160,27 @@ def getActualCollection(name):
 
 
 @gee_gateway.route('/getImagePlotDegradition', methods=['POST'])
-def getImagePlotDegradition():
-    values = {}
+def get_image_plot_degradition():
     try:
         logger.error("about to get json")
-        json = request.get_json()
+        request_json = request.get_json()
         logger.error("got json")
-        if json:
+        if request_json:
             logger.error("got json")
-            geometry = json.get('geometry')
+            geometry = request_json.get('geometry')
             logger.error("got geom")
-            start = json.get('start')
+            start = request_json.get('start')
             logger.error("got start")
-            end = json.get('end')
+            end = request_json.get('end')
             logger.error("got end")
-            band = json.get('band', 'NDFI')
+            band = request_json.get('band', 'NDFI')
             logger.error("got band")
-            dataType = json.get('dataType', 'landsat')
+            data_type = request_json.get('dataType', 'landsat')
             logger.error("got dataType")
             logger.error("About to set Sensors")
-            sensors = json.get('sensors', {"l4": True, "l5": True, "l7": True, "l8": True})
+            sensors = request_json.get('sensors', {"l4": True, "l5": True, "l7": True, "l8": True})
             logger.error("Sensors are set")
-            if dataType == 'landsat':
+            if data_type == 'landsat':
                 values = {
                     'timeseries': getDegradationPlotsByPoint(geometry, start, end, band, sensors)
                 }
@@ -1199,36 +1200,34 @@ def getImagePlotDegradition():
 
 
 @gee_gateway.route('/getDegraditionTileUrl', methods=['POST'])
-def getDegraditionTileUrl():
-    values = {}
+def get_degradition_tile_url():
     try:
-        json = request.get_json()
+        request_json = request.get_json()
         if json:
-            imageDate = json.get('imageDate', None)
-            geometry = json.get('geometry')
-            stretch = json.get('stretch', 321)
-            visParams = {}
+            image_date = request_json.get('imageDate', None)
+            geometry = request_json.get('geometry')
+            stretch = request_json.get('stretch', 321)
+            vis_params = {}
             if stretch == 321:
-                visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
+                vis_params = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
             elif stretch == 543:
-                visParams = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
+                vis_params = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
             elif stretch == 453:
-                visParams = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
+                vis_params = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
             elif stretch == "SAR":
-                visParams = {'bands': 'VV,VH,VV/VH', 'min': '-15,-25,.40', 'max': '0,-10,1', 'gamma': '1.6'}
-            tparams = json.get('visParams', "")
+                vis_params = {'bands': 'VV,VH,VV/VH', 'min': '-15,-25,.40', 'max': '0,-10,1', 'gamma': '1.6'}
+            tparams = request_json.get('visParams', "")
 
-            dataType = json.get('dataType', 'landsat')
+            data_type = request_json.get('dataType', 'landsat')
             if tparams != "":
-                visParams = tparams
-            if dataType == 'landsat':
+                vis_params = tparams
+            if data_type == 'landsat':
                 values = {
-                    "url": getDegraditionTileUrlByDate(geometry, imageDate, visParams)
-                    # (getDegraditionTileUrlByDateS1(geometry, imageDate, visParams),getDegraditionTileUrlByDate(geometry, imageDate, visParams))[dataType == "landsat"]
+                    "url": getDegraditionTileUrlByDate(geometry, image_date, vis_params)
                 }
             else:
                 values = {
-                    "url": getDegraditionTileUrlByDateS1(geometry, imageDate, visParams)
+                    "url": getDegraditionTileUrlByDateS1(geometry, image_date, vis_params)
                 }
         else:
             raise Exception(
@@ -1242,65 +1241,63 @@ def getDegraditionTileUrl():
 
 
 @gee_gateway.route('/getLatestImage', methods=['POST'])
-def getLatestImage():
+def get_latest_image():
     values = {}
     try:
-        json = request.get_json()
-        if json:
-            imageCollection = json.get('imageCollection',
-                                       "LANDSAT/LC08/C01/T1_TOA")  # l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA')
-            visParams = json.get('visParams', {"bands": "B4,B3,B2", "max": "0.3"})
-            values = getLatestImageTileUrl(imageCollection, visParams)
-    except GEEException as e:
-        logger.error(e.message)
+        request_json = request.get_json()
+        if request_json:
+            image_collection = request_json.get('imageCollection', "LANDSAT/LC08/C01/T1_TOA")
+            vis_params = request_json.get('visParams', {"bands": "B4,B3,B2", "max": "0.3"})
+            values = getLatestImageTileUrl(image_collection, vis_params)
+    except Exception as e:
+        logger.error(str(e))
         values = {
-            'errMsg': e.message
+            'errMsg': str(e)
         }
     return jsonify(values), 200
 
 
 @gee_gateway.route('/getRangedImage', methods=['POST'])
-def getRangedImage():
+def get_ranged_image():
     values = {}
     try:
-        json = request.get_json()
-        if json:
-            imageCollection = json.get('imageCollection',
-                                       "LANDSAT/LC08/C01/T1_TOA")  # l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA')
-            visParams = json.get('visParams', {"bands": "B4,B3,B2", "max": "0.3"})
-            dfrom = json.get('dateFrom', None)
-            dto = json.get('dateTo', None)
-            values = getRangedImageTileUrl(imageCollection, visParams, dfrom, dto)
-    except GEEException as e:
-        logger.error(e.message)
+        request_json = request.get_json()
+        if request_json:
+            image_collection = request_json.get('imageCollection', "LANDSAT/LC08/C01/T1_TOA")
+            vis_params = request_json.get('visParams', {"bands": "B4,B3,B2", "max": "0.3"})
+            dfrom = request_json.get('dateFrom', None)
+            dto = request_json.get('dateTo', None)
+            values = getRangedImageTileUrl(image_collection, vis_params, dfrom, dto)
+    except Exception as e:
+        logger.error(str(e))
         values = {
-            'errMsg': e.message
+            'errMsg': str(e)
         }
     return jsonify(values), 200
 
 
 @gee_gateway.route('/FilteredSentinelSAR', methods=['POST'])
-def FilteredSentinelSAR():
+def filtered_sentinel_sar():
     values = {}
     try:
-        json = request.get_json()
-        if json:
-            dateFrom = json.get('dateFrom', None)
-            dateTo = json.get('dateTo', None)
-            bands = json.get('bands', 'VH,VV,VH/VV')
-            min = json.get('min', '0')
-            max = json.get('max', '0.3')
-            dbValue = json.get('dbValue', False)
-            visParams = {
-                'min': min,
-                'max': max,
+        request_json = request.get_json()
+        if request_json:
+            date_from = request_json.get('dateFrom', None)
+            date_to = request_json.get('dateTo', None)
+            bands = request_json.get('bands', 'VH,VV,VH/VV')
+            band_min = request_json.get('min', '0')
+            band_max = request_json.get('max', '0.3')
+            db_value = request_json.get('dbValue', False)
+            vis_params = {
+                'min': band_min,
+                'max': band_max,
                 'bands': bands
             }
-            values = filteredSentinelSARComposite(visParams, dbValue, dateFrom, dateTo)
+            values = filteredSentinelSARComposite(vis_params, db_value, date_from, date_to)
     except GEEException as e:
-        logger.error(e.message)
+        logger.error(str(e))
         values = {
-            'errMsg': e.message
+            'errMsg': str(e)
         }
     return jsonify(values), 200
 

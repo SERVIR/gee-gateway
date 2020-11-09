@@ -3,7 +3,6 @@ import ee
 from ee.ee_exception import EEException
 from gee.gee_exception import GEEException
 from itertools import groupby
-import logging
 import logging.config
 from logging.handlers import RotatingFileHandler
 import math
