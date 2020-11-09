@@ -396,19 +396,19 @@ def time_series_index():
     try:
         request_json = request.get_json()
         if json:
-            collection_name = request_json.get('collectionNameTimeSeries', None)
+            # collection_name = request_json.get('collectionNameTimeSeries', None)
             geometry = request_json.get('polygon', None)  # deprecated
             if not geometry:
                 geometry = request_json.get('geometry', None)
-            if collection_name and geometry:
+            if geometry:
                 # indexName = json.get('indexName', 'NDVI')
                 index_name = request_json.get('indexName', None)
                 scale = float(request_json.get('scale', 30))
                 date_from = request_json.get('dateFromTimeSeries', None)
                 date_to = request_json.get('dateToTimeSeries', None)
                 reducer = request_json.get('reducer', None)
-                timeseries = getTimeSeriesByCollectionAndIndex(
-                    collection_name, index_name, scale, geometry, date_from, date_to, reducer)
+                timeseries = getTimeSeriesByCollectionAndIndex("MODIS/006/MOD13A2",
+                    index_name, scale, geometry, date_from, date_to, reducer)
                 values = {
                     'timeseries': timeseries
                 }
@@ -463,17 +463,17 @@ def time_series_index2():
     """
     values = {}
     try:
-        json = request.get_json()
-        if json:
-            geometry = json.get('polygon', None)  # deprecated
+        request_json = request.get_json()
+        if request_json:
+            geometry = request_json.get('polygon', None)  # deprecated
             if not geometry:
-                geometry = json.get('geometry', None)
+                geometry = request_json.get('geometry', None)
             if geometry:
-                indexName = json.get('indexName', 'NDVI')
-                scale = float(json.get('scale', 30))
-                reducer = json.get('reducer', 'median')
-                dateFrom = json.get('dateFromTimeSeries', None)
-                dateTo = json.get('dateToTimeSeries', None)
+                indexName = request_json.get('indexName', 'NDVI')
+                scale = float(request_json.get('scale', 30))
+                reducer = request_json.get('reducer', 'median')
+                dateFrom = request_json.get('dateFromTimeSeries', None)
+                dateTo = request_json.get('dateToTimeSeries', None)
                 timeseries = getTimeSeriesByIndex2(indexName, scale, geometry, dateFrom, dateTo, reducer)
                 values = {
                     'timeseries': timeseries
