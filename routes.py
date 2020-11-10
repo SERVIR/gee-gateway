@@ -21,7 +21,7 @@ gee_gateway = Flask(__name__, instance_relative_config=True,
                     static_url_path="/static", static_folder="./static")
 gee_gateway.config.from_object('config')
 gee_gateway.config.from_pyfile('config.py', silent=True)
-CORS(gee_gateway)
+# CORS(gee_gateway)
 
 
 @gee_gateway.before_request
@@ -403,26 +403,29 @@ def time_series_index():
     :<json String dateTo: end date
     :resheader Content-Type: application/json
     """
-    values = {}
     try:
         request_json = request.get_json()
         if json:
-            # collection_name = request_json.get('collectionNameTimeSeries', None)
             geometry = request_json.get('polygon', None)  # deprecated
             if not geometry:
                 geometry = request_json.get('geometry', None)
             if geometry:
-                # indexName = json.get('indexName', 'NDVI')
-                index_name = request_json.get('indexName', None)
-                scale = float(request_json.get('scale', 30))
-                date_from = request_json.get('dateFromTimeSeries', None)
-                date_to = request_json.get('dateToTimeSeries', None)
-                reducer = request_json.get('reducer', None)
-                timeseries = getTimeSeriesByCollectionAndIndex("MODIS/006/MOD13A2",
-                                                               index_name, scale, geometry, date_from, date_to, reducer)
+                # "MODIS/006/MOD13A2",
+                timeseries = getTimeSeriesByCollectionAndIndex(request_json.get('collectionNameTimeSeries', None),
+                                                               request_json.get('indexName', None),
+                                                               float(request_json.get('scale', 30)),
+                                                               geometry,
+                                                               request_json.get('dateFromTimeSeries', None),
+                                                               request_json.get('dateToTimeSeries', None),
+                                                               request_json.get('reducer', None)
+                                                               )
                 values = {
                     'timeseries': timeseries
                 }
+            else:
+                raise Exception
+        else:
+            raise Exception
     except GEEException as e:
         logger.error(str(e))
         values = {

@@ -386,7 +386,10 @@ def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[
             indexImage = ee.Image().set('indexValue', [ee.Number(date), indexValue])
             return indexImage
         logger.error("b4 map")
-        indexCollection1 = indexCollection.map(getIndex)
+        def getClipped(image):
+            return image.clip(geometry)
+        clippedcollection = indexCollection.map(getClipped)
+        indexCollection1 = clippedcollection.map(getIndex)
         logger.error("mapped")
         indexCollection2 = indexCollection1.aggregate_array('indexValue')
         logger.error("aggregated")
