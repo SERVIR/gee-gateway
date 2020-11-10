@@ -40,6 +40,8 @@ def before():
             initialize(ee_account=ee_account, ee_key_path=ee_key_path)
     else:
         initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+    if request.host == "localhost:8888":
+        CORS(gee_gateway)
 
 
 @gee_gateway.route('/', methods=['GET'])
