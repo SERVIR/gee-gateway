@@ -5,7 +5,7 @@ Jinja2==2.11.2
 MarkupSafe==0.23
 Werkzeug==1.0.1
 numpy
-earthengine-api
 python-dateutil
 shapely
 flask_cors
+shapely_geojson

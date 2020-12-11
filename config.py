@@ -1,8 +1,8 @@
 DEBUG = False
 PORT = 8888
 HOST = '0.0.0.0'
-CERT = '/etc/letsencrypt/live/ceodev.servirglobal.net/fullchain.pem'
-KEY = '/etc/letsencrypt/live/ceodev.servirglobal.net/privkey.pem'
+CERT = '/etc/letsencrypt/live/{domain}/fullchain.pem'
+KEY = '/etc/letsencrypt/live/{domain}/privkey.pem'
 
 CO_ORIGINS = '*'
 
