@@ -24,7 +24,7 @@ sudo apt install python3 python3-venv uwsgi uwsgi-emperor uwsgi-plugin-python3 n
 python3 -m venv --prompt gee-gateway /ceo/gee-venv/
 source /ceo/gee-venv/bin/activate
 cd /ceo/gee-venv/
-git clone https://github.com/openforis/collect-earth-online.git
+git clone https://github.com/SERVIR/gee-gateway.git
 cd gee-gateway/
 pip install -r requirements.txt
 pip install earthengine-api --upgrade
