@@ -633,6 +633,13 @@ def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
     values = indexCollection2.getInfo()
     return values
 
+def getFeatureCollectionTileUrl(featureCollection, field, matchID, visParams):
+    fc = ee.FeatureCollection(featureCollection)
+    single = fc.filter(ee.Filter.equals(field, matchID))
+    Pimage = ee.Image().paint(single,0,2)
+    iobj = Pimage.getMapId(visParams)
+    return iobj['tile_fetcher'].url_format
+
 def mosaicByDate(imcol):
     # imcol: An image collection
     # returns: An image collection

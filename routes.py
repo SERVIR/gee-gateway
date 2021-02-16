@@ -363,6 +363,314 @@ def image_collection_by_index():
     return jsonify(values), 200
 
 
+def get_filtered(collection_name, request_json, simple_composit_variable, is_sentinel):
+    if is_sentinel:
+        return filteredSentinelComposite({
+            'min': request_json.get('min', '0.03,0.01,0.05'),
+            'max': request_json.get('max', '0.45,0.5,0.4'),
+            'bands': request_json.get('bands', 'B4,B5,B3')
+        },
+            request_json.get('dateFrom', None),
+            request_json.get('dateTo', None),
+            request_json.get('cloudLessThan', 90))
+    else:
+        return filteredImageCompositeToMapId(collection_name,
+                                             {
+                                                 'min': request_json.get('min', '0.03,0.01,0.05'),
+                                                 'max': request_json.get('max', '0.45,0.5,0.4'),
+                                                 'bands': request_json.get('bands', 'B4,B5,B3')
+                                             },
+                                             request_json.get('dateFrom', None),
+                                             request_json.get('dateTo', None),
+                                             request_json.get('cloudLessThan', 90),
+                                             simple_composit_variable)
+
+
+@gee_gateway.route('/Landsat5Filtered', methods=['POST'])
+def landsat_5_filtered():
+    """
+    .. :quickref: Landsat5Filtered;
+    .. Get the xyz map tile url of a EE LANDSAT5 filtered ImageCollection by requested Index.
+
+    **Example request**:
+
+    .. code-block:: javascript
+
+        {
+            dateFrom: "YYYY-MM-DD",
+            dateTo: "YYYY-MM-DD",
+            cloudLessThan: nn,
+            bands: "B4,B5,B3",
+            min: "0.03,0.01,0.05",
+            max": "0.45,0.5,0.4"
+        }
+
+    **Example response**:
+
+    .. code-block:: javascript
+
+        {
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+        }
+
+    :reqheader Accept: application/json
+    :<json String dateFrom: start date
+    :<json String dateTo: end date
+    :<json String cloudLessThan: cloud filter number
+    :<json String bands: bands
+    :<json String min: min
+    :<json String max: max
+    :resheader Content-Type: application/json
+    """
+    values = {}
+    try:
+        request_json = request.get_json()
+        if request_json:
+            values = get_filtered('LANDSAT/LT05/C01/T1', request_json, 50, False)
+    except GEEException as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+@gee_gateway.route('/Landsat7Filtered', methods=['POST'])
+def landsat_7_filtered():
+    """
+    .. :quickref: Landsat7Filtered;
+    .. Get the xyz map tile url of a EE LANDSAT7 filtered ImageCollection by requested Index.
+
+    **Example request**:
+
+    .. code-block:: javascript
+
+        {
+            dateFrom: "YYYY-MM-DD",
+            dateTo: "YYYY-MM-DD",
+            cloudLessThan: nn,
+            bands: "B4,B5,B3",
+            min: "0.03,0.01,0.05",
+            max": "0.45,0.5,0.4"
+        }
+
+    **Example response**:
+
+    .. code-block:: javascript
+
+        {
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+        }
+
+    :reqheader Accept: application/json
+    :<json String dateFrom: start date
+    :<json String dateTo: end date
+    :<json String cloudLessThan: cloud filter number
+    :<json String bands: bands
+    :<json String min: min
+    :<json String max: max
+    :resheader Content-Type: application/json
+    """
+    values = {}
+    try:
+        request_json = request.get_json()
+        if json:
+            values = get_filtered('LANDSAT/LE07/C01/T1', request_json, 60, False)
+    except GEEException as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+@gee_gateway.route('/Landsat8Filtered', methods=['POST'])
+def landsat_8_filtered():
+    """
+    .. :quickref: Landsat8Filtered;
+    .. Get the xyz map tile url of a EE LANDSAT8 filtered ImageCollection by requested Index.
+
+    **Example request**:
+
+    .. code-block:: javascript
+
+        {
+            dateFrom: "YYYY-MM-DD",
+            dateTo: "YYYY-MM-DD",
+            cloudLessThan: nn,
+            bands: "B4,B5,B3",
+            min: "0.03,0.01,0.05",
+            max": "0.45,0.5,0.4"
+        }
+
+    **Example response**:
+
+    .. code-block:: javascript
+
+        {
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+        }
+
+    :reqheader Accept: application/json
+    :<json String dateFrom: start date
+    :<json String dateTo: end date
+    :<json String cloudLessThan: cloud filter number
+    :<json String bands: bands
+    :<json String min: min
+    :<json String max: max
+    :resheader Content-Type: application/json
+    """
+    values = {}
+    try:
+        request_json = request.get_json()
+        if json:
+            values = get_filtered('LANDSAT/LC08/C01/T1_RT', request_json, 50, False)
+    except GEEException as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+@gee_gateway.route('/FilteredSentinel', methods=['POST'])
+def filtered_sentinel():
+    """
+    .. :quickref: FilteredSentinel;
+    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
+
+    **Example request**:
+
+    .. code-block:: javascript
+
+        {
+            dateFrom: "YYYY-MM-DD",
+            dateTo: "YYYY-MM-DD",
+            cloudLessThan: nn,
+            bands: "B4,B5,B3",
+            min: "0.03,0.01,0.05",
+            max": "0.45,0.5,0.4"
+        }
+
+    **Example response**:
+
+    .. code-block:: javascript
+
+        {
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+        }
+
+    :reqheader Accept: application/json
+    :<json String dateFrom: start date
+    :<json String dateTo: end date
+    :<json String cloudLessThan: cloud filter number
+    :<json String bands: bands
+    :<json String min: min
+    :<json String max: max
+    :resheader Content-Type: application/json
+    """
+    values = {}
+    try:
+        request_json = request.get_json()
+        if json:
+            values = get_filtered('', request_json, '', True)
+    except GEEException as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+@gee_gateway.route('/ImageCollectionAsset', methods=['POST'])
+def image_collection_asset():
+    """
+    .. :quickref: FilteredSentinel;
+    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
+
+    **Example request**:
+
+    .. code-block:: javascript
+
+        {
+            imageName: "xx",
+            ImageCollectionAsset: "xx",
+            visParams: {
+                min: 0.0,
+                max: 0.0,
+                bands: "XX,XX,XX"
+            }
+        }
+
+    **Example response**:
+
+    .. code-block:: javascript
+
+        {
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+        }
+
+    :reqheader Accept: application/json
+    :<json String imageName: if requesting an image asset send the image name
+    :<json String ImageCollectionAsset: if requesting an imageCollection asset send the ImageCollection Asset name
+    :<json Object visParams: visParams
+    :resheader Content-Type: application/json
+    """
+    values = {}
+    try:
+        request_json = request.get_json()
+        if json:
+            if 'imageName' in request_json:
+                collection = request_json.get('imageName', '')
+            else:
+                collection = request_json.get('ImageCollectionAsset', '')
+            vis_params = request_json.get('visParams', {})
+            values = getImageCollectionAsset(collection, vis_params)
+    except GEEException as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+@gee_gateway.route('/getPlanetTile', methods=['POST', 'GET'])
+def get_planet_tile():
+    """ To do: add definition """
+    try:
+        if request.method == 'POST':
+            logger.error("inside POST Planet")
+            request_json = request.get_json()
+            api_key = request_json.get('apiKey')
+            logger.error("API: " + api_key)
+            geometry = request_json.get('geometry')
+            start = request_json.get('dateFrom')
+            end = request_json.get('dateTo', None)
+            layer_count = request_json.get('layerCount', 1)
+            item_types = request_json.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
+            buffer = int(request_json.get('buffer', 0.5))
+            add_similar = bool(distutils.util.strtobool(request_json.get('addsimilar', 'True')))
+            values = getPlanetMapID(api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
+
+        else:
+            # request.args.get if get
+            api_key = request.args.get('apiKey')
+            geometry = json.loads(request.args.get('geometry'))
+            start = request.args.get('dateFrom')
+            end = request.args.get('dateTo', None)
+            layer_count = int(request.args.get('layerCount', 1))
+            item_types = request.args.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
+            buffer = int(request.args.get('buffer', 0.5))
+            add_similar = bool(distutils.util.strtobool(request.args.get('addsimilar', 'True')))
+            values = getPlanetMapID(api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
+    except Exception as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
 @gee_gateway.route('/timeSeriesIndex', methods=['POST'])
 def time_series_index():
     """
@@ -813,317 +1121,6 @@ def ndvi_change():
     return jsonify(values), 200
 
 
-@gee_gateway.route('/Landsat5Filtered', methods=['POST'])
-def landsat_5_filtered():
-    """
-    .. :quickref: Landsat5Filtered;
-    .. Get the xyz map tile url of a EE LANDSAT5 filtered ImageCollection by requested Index.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD",
-            cloudLessThan: nn,
-            bands: "B4,B5,B3",
-            min: "0.03,0.01,0.05",
-            max": "0.45,0.5,0.4"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :<json String cloudLessThan: cloud filter number
-    :<json String bands: bands
-    :<json String min: min
-    :<json String max: max
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if request_json:
-            values = get_filtered('LANDSAT/LT05/C01/T1', request_json, 50, False)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/Landsat7Filtered', methods=['POST'])
-def landsat_7_filtered():
-    """
-    .. :quickref: Landsat7Filtered;
-    .. Get the xyz map tile url of a EE LANDSAT7 filtered ImageCollection by requested Index.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD",
-            cloudLessThan: nn,
-            bands: "B4,B5,B3",
-            min: "0.03,0.01,0.05",
-            max": "0.45,0.5,0.4"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :<json String cloudLessThan: cloud filter number
-    :<json String bands: bands
-    :<json String min: min
-    :<json String max: max
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            values = get_filtered('LANDSAT/LE07/C01/T1', request_json, 60, False)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/Landsat8Filtered', methods=['POST'])
-def landsat_8_filtered():
-    """
-    .. :quickref: Landsat8Filtered;
-    .. Get the xyz map tile url of a EE LANDSAT8 filtered ImageCollection by requested Index.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD",
-            cloudLessThan: nn,
-            bands: "B4,B5,B3",
-            min: "0.03,0.01,0.05",
-            max": "0.45,0.5,0.4"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :<json String cloudLessThan: cloud filter number
-    :<json String bands: bands
-    :<json String min: min
-    :<json String max: max
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            values = get_filtered('LANDSAT/LC08/C01/T1_RT', request_json, 50, False)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/FilteredSentinel', methods=['POST'])
-def filtered_sentinel():
-    """
-    .. :quickref: FilteredSentinel;
-    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD",
-            cloudLessThan: nn,
-            bands: "B4,B5,B3",
-            min: "0.03,0.01,0.05",
-            max": "0.45,0.5,0.4"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :<json String cloudLessThan: cloud filter number
-    :<json String bands: bands
-    :<json String min: min
-    :<json String max: max
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            values = get_filtered('', request_json, '', True)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/ImageCollectionAsset', methods=['POST'])
-def image_collection_asset():
-    """
-    .. :quickref: FilteredSentinel;
-    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            imageName: "xx",
-            ImageCollectionAsset: "xx",
-            visParams: {
-                min: 0.0,
-                max: 0.0,
-                bands: "XX,XX,XX"
-            }
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String imageName: if requesting an image asset send the image name
-    :<json String ImageCollectionAsset: if requesting an imageCollection asset send the ImageCollection Asset name
-    :<json Object visParams: visParams
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            if 'imageName' in request_json:
-                collection = request_json.get('imageName', '')
-            else:
-                collection = request_json.get('ImageCollectionAsset', '')
-            vis_params = request_json.get('visParams', {})
-            values = getImageCollectionAsset(collection, vis_params)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-def get_filtered(collection_name, request_json, simple_composit_variable, is_sentinel):
-    date_from = request_json.get('dateFrom', None)
-    date_to = request_json.get('dateTo', None)
-    cloud_less_than = request_json.get('cloudLessThan', 90)
-    bands = request_json.get('bands', 'B4,B5,B3')
-    band_min = request_json.get('min', '0.03,0.01,0.05')
-    band_max = request_json.get('max', '0.45,0.5,0.4')
-    vis_params = {
-        'min': band_min,
-        'max': band_max,
-        'bands': bands
-    }
-    if is_sentinel:
-        return filteredSentinelComposite(vis_params,
-                                         date_from,
-                                         date_to,
-                                         cloud_less_than)
-    else:
-        return filteredImageCompositeToMapId(collection_name,
-                                             vis_params,
-                                             date_from,
-                                             date_to,
-                                             cloud_less_than,
-                                             simple_composit_variable)
-
-
-@gee_gateway.route('/getPlanetTile', methods=['POST', 'GET'])
-def get_planet_tile():
-    """ To do: add definition """
-    try:
-        if request.method == 'POST':
-            logger.error("inside POST Planet")
-            request_json = request.get_json()
-            api_key = request_json.get('apiKey')
-            logger.error("API: " + api_key)
-            geometry = request_json.get('geometry')
-            start = request_json.get('dateFrom')
-            end = request_json.get('dateTo', None)
-            layer_count = request_json.get('layerCount', 1)
-            item_types = request_json.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
-            buffer = int(request_json.get('buffer', 0.5))
-            add_similar = bool(distutils.util.strtobool(request_json.get('addsimilar', 'True')))
-            values = getPlanetMapID(api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
-
-        else:
-            # request.args.get if get
-            api_key = request.args.get('apiKey')
-            geometry = json.loads(request.args.get('geometry'))
-            start = request.args.get('dateFrom')
-            end = request.args.get('dateTo', None)
-            layer_count = int(request.args.get('layerCount', 1))
-            item_types = request.args.get('itemTypes', ['PSScene3Band', 'PSScene4Band'])
-            buffer = int(request.args.get('buffer', 0.5))
-            add_similar = bool(distutils.util.strtobool(request.args.get('addsimilar', 'True')))
-            values = getPlanetMapID(api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
 @gee_gateway.route('/getAvailableBands', methods=['POST'])
 def get_available_bands():
     """ To do: add definition """
@@ -1244,6 +1241,28 @@ def get_degradition_tile_url():
         }
     return jsonify(values), 200
 
+@gee_gateway.route('/getTileUrlFromFeatureCollection', methods=['POST'])
+def getTileUrlFromFeatureCollection():
+    values = {}
+    try:
+        json = request.get_json()
+        if json:
+            defaultVisParams = {"max": 1, "palette": ['red']}
+            featureCollection = json.get('featureCollection', None)
+            field = json.get('field', 'PLOTID')
+            matchID = int(json.get('matchID', None))
+            visParams = json.get('visParams', defaultVisParams)
+            if visParams == {}:
+                visParams = defaultVisParams
+            values = {
+                "url": getFeatureCollectionTileUrl(featureCollection, field, matchID, visParams)
+            }
+    except GEEException as e:
+        logger.error(e.message)
+        values = {
+            'errMsg': e.message
+        }
+    return jsonify(values), 200
 
 @gee_gateway.route('/getLatestImage', methods=['POST'])
 def get_latest_image():
