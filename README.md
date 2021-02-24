@@ -66,9 +66,16 @@ sudo chown -R www-data:ceo /ceo/gee-venv/
 
 ### HTTPS/HTTP
 
-TODO, fill out.
+HTTP access for 127.0.0.1 is required when running next to ceo. The nginx.conf
+template includes a skeleton for HTTP.
 
-HTTP access for 127.0.0.1 is required when running next to ceo.
+To have nginx restart when certificates are renewed by certbot, place a script
+file in /etc/letsencrypt/renewal-hooks/deploy. Inside that file place the following
+line:
+
+```bash
+systemctl restart nginx emperor.uwsgi
+```
 
 ### EXECUTION
 
