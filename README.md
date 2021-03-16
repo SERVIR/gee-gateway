@@ -66,9 +66,16 @@ sudo chown -R www-data:ceo /ceo/gee-venv/
 
 ### HTTPS/HTTP
 
-TODO, fill out.
+HTTP access for 127.0.0.1 is required when running next to ceo. The nginx.conf
+template includes a skeleton for HTTP.
 
-HTTP access for 127.0.0.1 is required when running next to ceo.
+To have nginx restart when certificates are renewed by certbot, place a script
+file in /etc/letsencrypt/renewal-hooks/deploy. The sh file will need executable
+writes. Inside that file place the following line:
+
+```bash
+systemctl restart nginx emperor.uwsgi
+```
 
 ### EXECUTION
 
@@ -97,10 +104,10 @@ sudo systemctl restart nginx emperor.uwsgi
 
 ## USE
 
-Navigate to https://ceo.sig-gis.com:8888/ to interact with the web ui.
+Navigate to https://localhost:8888/ to interact with the web ui.
 
 Have running alongside CEO.
 
-curl https://ceodev.servirglobal.net:8888/timeSeriesIndex -d '{"collectionNameTimeSeries":"LANDSAT/LC8_L1T_32DAY_NDWI","geometry":[[98.6270686247256,12.804422919455547],[98.62753901527437,12.804422919455547],[98.62753901527437,12.804714380460211],[98.6270686247256,12.804714380460211],[98.6270686247256,12.804422919455547]],"indexName":"NDWI","dateFromTimeSeries":"2015-01-01","dateToTimeSeries":"2017-12-31","reducer":"","scale":30,"point":[98.62730382,12.80456865],"start":"","end":"","band":"","dataType":""}'
+curl https://localhost:8888/timeSeriesIndex -d '{"collectionNameTimeSeries":"LANDSAT/LC8_L1T_32DAY_NDWI","geometry":[[98.6270686247256,12.804422919455547],[98.62753901527437,12.804422919455547],[98.62753901527437,12.804714380460211],[98.6270686247256,12.804714380460211],[98.6270686247256,12.804422919455547]],"indexName":"NDWI","dateFromTimeSeries":"2015-01-01","dateToTimeSeries":"2017-12-31","reducer":"","scale":30,"point":[98.62730382,12.80456865],"start":"","end":"","band":"","dataType":""}'
 
-curl https://ceodev.servirglobal.net/geo-dash/gateway-request -d '{"collectionNameTimeSeries":"LANDSAT/LC8_L1T_32DAY_NDWI","geometry":[[98.6270686247256,12.804422919455547],[98.62753901527437,12.804422919455547],[98.62753901527437,12.804714380460211],[98.6270686247256,12.804714380460211],[98.6270686247256,12.804422919455547]],"indexName":"NDWI","dateFromTimeSeries":"2015-01-01","dateToTimeSeries":"2017-12-31","reducer":"","scale":30,"path":"timeSeriesIndex","point":[98.62730382,12.80456865],"start":"","end":"","band":"","dataType":""}'
+curl https://localhost/geo-dash/gateway-request -d '{"collectionNameTimeSeries":"LANDSAT/LC8_L1T_32DAY_NDWI","geometry":[[98.6270686247256,12.804422919455547],[98.62753901527437,12.804422919455547],[98.62753901527437,12.804714380460211],[98.6270686247256,12.804714380460211],[98.6270686247256,12.804422919455547]],"indexName":"NDWI","dateFromTimeSeries":"2015-01-01","dateToTimeSeries":"2017-12-31","reducer":"","scale":30,"path":"timeSeriesIndex","point":[98.62730382,12.80456865],"start":"","end":"","band":"","dataType":""}'
