@@ -15,21 +15,21 @@ The following is a shorthand version for Debian / Ubuntu
 ### Global packages
 
 ```bash
-sudo apt install python3 python3-venv uwsgi uwsgi-emperor uwsgi-plugin-python3 nginx-full
+sudo apt install python3 python3-venv uwsgi uwsgi-plugin-python3 nginx-full
 ```
 
 ### Python virtual environment
 
 ```bash
-python3 -m venv --prompt gee-gateway /ceo/gee-venv/
-source /ceo/gee-venv/bin/activate
-cd /ceo/gee-venv/
 git clone https://github.com/SERVIR/gee-gateway.git
 cd gee-gateway/
+python3 -m venv --prompt ceo venv/
+source venv/bin/activate
 pip install -r requirements.txt
 pip install earthengine-api --upgrade
-sudo touch /ceo/gee-venv/uwsgi.log
+sudo touch venv/uwsgi.log
 deactivate
+npm install
 ```
 
 ## CONFIGURATION
@@ -38,22 +38,24 @@ deactivate
 
 Edit the gee-gateway configuration file `gee-gateway/config.py`
 
-Copy and configure the nginx config file `gee-gateway/nginx_files/nginx.conf` into `/etc/nginx/nginx.conf`
-```bash
-sudo cp nginx_files/nginx.conf /etc/nginx/nginx.conf
-sudo nano /etc/nginx/nginx.conf
+Copy and configure the nginx config file `gee-gateway/nginx_files/gee.conf` into `/etc/nginx/sites-available/gee.conf`
+```sh
+sudo cp nginx_files/gee.conf /etc/nginx/sites-available/gee.conf
+sudo ln -s /etc/nginx/sites-available/gee.conf /etc/nginx/sites-enabled/
+sudo nano /etc/nginx/gee.conf
+sudo service nginx restart
 ```
 
 
 Copy and configure the uwsgi config file `gee-gateway/nginx_files/gee-gateway.ini` into `/etc/uwsgi-emperor/vassals/gee-gateway.ini`
-```bash
+```sh
 sudo cp nginx_files/gee-gateway.ini /etc/uwsgi-emperor/vassals/gee-gateway.ini
 sudo nano /etc/uwsgi-emperor/vassals/gee-gateway.ini
 ```
 
-Copy empire service file `gee-gateway/nginx_files/emperor.uwsgi.service` to `/etc/systemd/system/emperor.uwsgi.service`
-```bash
-sudo cp nginx_files/emperor.uwsgi.service /etc/systemd/system/emperor.uwsgi.service
+Copy empire service file `gee-gateway/nginx_files/uwsgi-gee.service` to `/etc/systemd/system/uwsgi-gee.service`
+```sh
+sudo cp nginx_files/uwsgi-gee.service /etc/systemd/system/uwsgi-gee.service
 ```
 
 ### PERMISSIONS
@@ -69,37 +71,30 @@ sudo chown -R www-data:ceo /ceo/gee-venv/
 HTTP access for 127.0.0.1 is required when running next to ceo. The nginx.conf
 template includes a skeleton for HTTP.
 
-To have nginx restart when certificates are renewed by certbot, place a script
+To have nginx reload when certificates are renewed by certbot, place a script
 file in /etc/letsencrypt/renewal-hooks/deploy. The sh file will need executable
 writes. Inside that file place the following line:
 
 ```bash
-systemctl restart nginx emperor.uwsgi
+systemctl reload nginx
 ```
 
 ### EXECUTION
-
-Disable built in emperor service for Ubuntu
-
-```bash
-systemctl stop uwsgi-emperor
-systemctl disable uwsgi-emperor
-```
 
 Enable
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable nginx emperor.uwsgi
+sudo systemctl enable nginx uwsgi-gee
 sudo systemctl reload nginx
 ```
 
-Start, Stop, Restart
+Start, Stop, Restart (note that nginx and uwsgi-gee are two different processes)
 
 ```bash
-sudo systemctl start nginx emperor.uwsgi
-sudo systemctl stop nginx emperor.uwsgi
-sudo systemctl restart nginx emperor.uwsgi
+sudo systemctl start nginx uwsgi-gee
+sudo systemctl stop nginx uwsgi-gee
+sudo systemctl restart nginx uwsgi-gee
 ```
 
 ## USE
