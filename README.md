@@ -38,13 +38,16 @@ deactivate
 Edit the gee-gateway configuration file `gee-gateway/config.py`
 
 Copy and configure the nginx config file `gee-gateway/nginx_files/gee.conf` into `/etc/nginx/sites-available/gee.conf`
+
 ```sh
 sudo cp nginx_files/gee.conf /etc/nginx/sites-available/gee.conf
 sudo ln -s /etc/nginx/sites-available/gee.conf /etc/nginx/sites-enabled/
 sudo nano /etc/nginx/sites-available/gee.conf
 sudo service nginx restart
 ```
+
 Copy uwsgi service file `gee-gateway/nginx_files/gee-uwsgi.service` to `/etc/systemd/system/gee-uwsgi.service` and update path to gee-uwsgi.ini
+
 ```sh
 sudo cp nginx_files/gee-uwsgi.service /etc/systemd/system/gee-uwsgi.service
 sudo nano /etc/systemd/system/gee-uwsgi.service
@@ -53,6 +56,7 @@ sudo nano /etc/systemd/system/gee-uwsgi.service
 ### PERMISSIONS
 
 Set the owner of the gee-gateway folder to the same as uid/gid in gee-gateway.ini
+
 ```sh
 sudo chown -R ceo:ceo gee-gateway/
 ```
