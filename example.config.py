@@ -6,8 +6,8 @@ KEY = '/etc/letsencrypt/live/{domain}/privkey.pem'
 
 CO_ORIGINS = '*'
 
-EE_ACCOUNT = '945396317946-ofvpdldm70jk29d1d4pccu0dhsvkpn8s@developer.gserviceaccount.com'
-EE_KEY_PATH = '/home/openforis/nginx_temp/privatekeyCE.pem'
+EE_ACCOUNT = '<EE_ACCOUNT>'
+EE_KEY_PATH = '<EE_KEY_PATH>'
 
 import logging
 LOGGING_LEVEL = logging.INFO
