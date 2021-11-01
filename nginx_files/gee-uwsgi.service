@@ -3,12 +3,13 @@ Description=uWSGI Emperor
 After=syslog.target
 
 [Service]
-ExecStart=/usr/bin/uwsgi --ini {path to gee-gateway.ini}
-# Requires systemd version 211 or newer
-RuntimeDirectory=uwsgi
+WorkingDirectory={path to repo}
+ExecStart=/usr/bin/uwsgi --ini gee-uwsgi.ini
+#RuntimeDirectory=uwsgi
 Restart=always
+RestartSec=30
 KillSignal=SIGQUIT
-Type=notify
+Type=Forking
 StandardError=syslog
 NotifyAccess=all
 

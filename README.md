@@ -14,22 +14,21 @@ The following is a shorthand version for Debian / Ubuntu
 
 ### Global packages
 
-```bash
+```sh
+# Verify no need for uwsgi-emperor
 sudo apt install python3 python3-venv uwsgi uwsgi-plugin-python3 nginx-full
 ```
 
 ### Python virtual environment
 
-```bash
+```sh
 git clone https://github.com/SERVIR/gee-gateway.git
 cd gee-gateway/
 python3 -m venv --prompt ceo venv/
 source venv/bin/activate
 pip install -r requirements.txt
 pip install earthengine-api --upgrade
-sudo touch venv/uwsgi.log
 deactivate
-npm install
 ```
 
 ## CONFIGURATION
@@ -39,31 +38,27 @@ npm install
 Edit the gee-gateway configuration file `gee-gateway/config.py`
 
 Copy and configure the nginx config file `gee-gateway/nginx_files/gee.conf` into `/etc/nginx/sites-available/gee.conf`
+
 ```sh
 sudo cp nginx_files/gee.conf /etc/nginx/sites-available/gee.conf
 sudo ln -s /etc/nginx/sites-available/gee.conf /etc/nginx/sites-enabled/
-sudo nano /etc/nginx/gee.conf
+sudo nano /etc/nginx/sites-available/gee.conf
 sudo service nginx restart
 ```
 
+Copy uwsgi service file `gee-gateway/nginx_files/gee-uwsgi.service` to `/etc/systemd/system/gee-uwsgi.service` and update path to gee-uwsgi.ini
 
-Copy and configure the uwsgi config file `gee-gateway/nginx_files/gee-gateway.ini` into `/etc/uwsgi-emperor/vassals/gee-gateway.ini`
 ```sh
-sudo cp nginx_files/gee-gateway.ini /etc/uwsgi-emperor/vassals/gee-gateway.ini
-sudo nano /etc/uwsgi-emperor/vassals/gee-gateway.ini
-```
-
-Copy empire service file `gee-gateway/nginx_files/uwsgi-gee.service` to `/etc/systemd/system/uwsgi-gee.service`
-```sh
-sudo cp nginx_files/uwsgi-gee.service /etc/systemd/system/uwsgi-gee.service
+sudo cp nginx_files/gee-uwsgi.service /etc/systemd/system/gee-uwsgi.service
+sudo nano /etc/systemd/system/gee-uwsgi.service
 ```
 
 ### PERMISSIONS
 
 Set the owner of the gee-gateway folder to the same as uid/gid in gee-gateway.ini
-```bash
-sudo usermod -a -G ceo www-data
-sudo chown -R www-data:ceo /ceo/gee-venv/
+
+```sh
+sudo chown -R ceo:ceo gee-gateway/
 ```
 
 ### HTTPS/HTTP
@@ -75,7 +70,7 @@ To have nginx reload when certificates are renewed by certbot, place a script
 file in /etc/letsencrypt/renewal-hooks/deploy. The sh file will need executable
 writes. Inside that file place the following line:
 
-```bash
+```sh
 systemctl reload nginx
 ```
 
@@ -83,18 +78,25 @@ systemctl reload nginx
 
 Enable
 
-```bash
+```sh
 sudo systemctl daemon-reload
-sudo systemctl enable nginx uwsgi-gee
+sudo systemctl enable nginx gee-uwsgi
 sudo systemctl reload nginx
 ```
 
-Start, Stop, Restart (note that nginx and uwsgi-gee are two different processes)
+Start, Stop, Restart (note that nginx and gee-uwsgi are two different processes)
 
-```bash
-sudo systemctl start nginx uwsgi-gee
-sudo systemctl stop nginx uwsgi-gee
-sudo systemctl restart nginx uwsgi-gee
+```sh
+sudo systemctl start nginx gee-uwsgi
+sudo systemctl stop nginx gee-uwsgi
+sudo systemctl restart nginx gee-uwsgi
+```
+
+### LOGS
+
+```sh
+sudo less +G /var/log/nginx/error.log
+sudo journalctl -e -u gee-uwsgi
 ```
 
 ## USE
