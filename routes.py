@@ -51,6 +51,38 @@ def index():
 
 ############################### CEO GeoDash ##############################
 
+### Helper Routes
+
+
+@gee_gateway.route('/getAvailableBands', methods=['POST'])
+def get_available_bands():
+    """ To do: add definition """
+    logger.error("Debugging getAvailableBands")
+    try:
+        request_json = request.get_json()
+        if request_json:
+            image_collection_name = request_json.get('imageCollection', None)
+            image_name = request_json.get('image', None)
+            if image_collection_name is None:
+                values = listAvailableBands(image_name, True)
+            else:
+                logger.error("getAvailableBands else")
+                actual_name = get_actual_collection(image_collection_name)
+                logger.error(actual_name + "spaces?")
+                values = listAvailableBands(actual_name, False)
+        else:
+            raise Exception(
+                "Need either image or imageCollection parameter containing the full name")
+    except Exception as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+### ee.Image
+
 @gee_gateway.route('/image', methods=['POST'])
 def image():
     """ Return
@@ -95,6 +127,8 @@ def image():
         }
     return jsonify(values), 200
 
+
+### ee.ImageCollection
 
 @gee_gateway.route('/firstImageByMosaicCollection', methods=['POST'])
 def first_image_by_mosaic_collection():
@@ -321,6 +355,72 @@ def image_collection_by_index():
     return jsonify(values), 200
 
 
+@gee_gateway.route('/ImageCollectionAsset', methods=['POST'])
+def image_collection_asset():
+    """
+    .. :quickref: FilteredSentinel;
+    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
+
+    **Example request**:
+
+    .. code-block:: javascript
+
+        {
+            imageName: "xx",
+            ImageCollectionAsset: "xx",
+            visParams: {
+                min: 0.0,
+                max: 0.0,
+                bands: "XX,XX,XX"
+            }
+        }
+
+    **Example response**:
+
+    .. code-block:: javascript
+
+        {
+            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
+        }
+
+    :reqheader Accept: application/json
+    :<json String imageName: if requesting an image asset send the image name
+    :<json String ImageCollectionAsset: if requesting an imageCollection asset send the ImageCollection Asset name
+    :<json Object visParams: visParams
+    :resheader Content-Type: application/json
+    """
+    values = {}
+    try:
+        request_json = request.get_json()
+        if json:
+            if 'imageName' in request_json:
+                collection = request_json.get('imageName', '')
+            else:
+                collection = request_json.get('ImageCollectionAsset', '')
+            vis_params = request_json.get('visParams', {})
+            values = getImageCollectionAsset(collection, vis_params)
+    except GEEException as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+### ee.ImageCollection Filtered
+
+def get_actual_collection(name):
+    if name == "LANDSAT5":
+        return "LANDSAT/LT05/C01/T1"
+    elif name == "LANDSAT7":
+        return "LANDSAT/LE07/C01/T1"
+    elif name == "LANDSAT8":
+        return "LANDSAT/LC08/C01/T1_RT"
+    elif name == "Sentinel2":
+        return "COPERNICUS/S2"
+    else:
+        return name
+
+
 def get_filtered(collection_name, request_json, simple_composit_variable, is_sentinel):
     if is_sentinel:
         return filteredSentinelComposite({
@@ -540,50 +640,24 @@ def filtered_sentinel():
     return jsonify(values), 200
 
 
-@gee_gateway.route('/ImageCollectionAsset', methods=['POST'])
-def image_collection_asset():
-    """
-    .. :quickref: FilteredSentinel;
-    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            imageName: "xx",
-            ImageCollectionAsset: "xx",
-            visParams: {
-                min: 0.0,
-                max: 0.0,
-                bands: "XX,XX,XX"
-            }
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String imageName: if requesting an image asset send the image name
-    :<json String ImageCollectionAsset: if requesting an imageCollection asset send the ImageCollection Asset name
-    :<json Object visParams: visParams
-    :resheader Content-Type: application/json
-    """
+@gee_gateway.route('/FilteredSentinelSAR', methods=['POST'])
+def filtered_sentinel_sar():
     values = {}
     try:
         request_json = request.get_json()
-        if json:
-            if 'imageName' in request_json:
-                collection = request_json.get('imageName', '')
-            else:
-                collection = request_json.get('ImageCollectionAsset', '')
-            vis_params = request_json.get('visParams', {})
-            values = getImageCollectionAsset(collection, vis_params)
+        if request_json:
+            date_from = request_json.get('dateFrom', None)
+            date_to = request_json.get('dateTo', None)
+            bands = request_json.get('bands', 'VH,VV,VH/VV')
+            band_min = request_json.get('min', '0')
+            band_max = request_json.get('max', '0.3')
+            db_value = request_json.get('dbValue', False)
+            vis_params = {
+                'min': band_min,
+                'max': band_max,
+                'bands': bands
+            }
+            values = filteredSentinelSARComposite(vis_params, db_value, date_from, date_to)
     except GEEException as e:
         logger.error(str(e))
         values = {
@@ -591,6 +665,34 @@ def image_collection_asset():
         }
     return jsonify(values), 200
 
+
+### ee.FeatureCollection
+
+@gee_gateway.route('/getTileUrlFromFeatureCollection', methods=['POST'])
+def getTileUrlFromFeatureCollection():
+    values = {}
+    try:
+        json = request.get_json()
+        if json:
+            defaultVisParams = {"max": 1, "palette": ['red']}
+            featureCollection = json.get('featureCollection', None)
+            field = json.get('field', 'PLOTID')
+            matchID = int(json.get('matchID', None))
+            visParams = json.get('visParams', defaultVisParams)
+            if visParams == {}:
+                visParams = defaultVisParams
+            values = {
+                "url": getFeatureCollectionTileUrl(featureCollection, field, matchID, visParams)
+            }
+    except GEEException as e:
+        logger.error(e.message)
+        values = {
+            'errMsg': e.message
+        }
+    return jsonify(values), 200
+
+
+### Planet
 
 @gee_gateway.route('/getPlanetTile', methods=['POST', 'GET'])
 def get_planet_tile():
@@ -628,6 +730,8 @@ def get_planet_tile():
         }
     return jsonify(values), 200
 
+
+### Time Series
 
 @gee_gateway.route('/timeSeriesIndex', methods=['POST'])
 def time_series_index():
@@ -822,6 +926,7 @@ def time_series_asset_for_point():
         }
     return jsonify(values), 200
 
+### Stats
 
 @gee_gateway.route('/getStats', methods=['POST'])
 def get_stats():
@@ -864,45 +969,8 @@ def get_stats():
     return jsonify(values), 200
 
 
-@gee_gateway.route('/getAvailableBands', methods=['POST'])
-def get_available_bands():
-    """ To do: add definition """
-    logger.error("Debugging getAvailableBands")
-    try:
-        request_json = request.get_json()
-        if request_json:
-            image_collection_name = request_json.get('imageCollection', None)
-            image_name = request_json.get('image', None)
-            if image_collection_name is None:
-                values = listAvailableBands(image_name, True)
-            else:
-                logger.error("getAvailableBands else")
-                actual_name = get_actual_collection(image_collection_name)
-                logger.error(actual_name + "spaces?")
-                values = listAvailableBands(actual_name, False)
-        else:
-            raise Exception(
-                "Need either image or imageCollection parameter containing the full name")
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-def get_actual_collection(name):
-    if name == "LANDSAT5":
-        return "LANDSAT/LT05/C01/T1"
-    elif name == "LANDSAT7":
-        return "LANDSAT/LE07/C01/T1"
-    elif name == "LANDSAT8":
-        return "LANDSAT/LC08/C01/T1_RT"
-    elif name == "Sentinel2":
-        return "COPERNICUS/S2"
-    else:
-        return name
-
+### Degradation
+### FIXME, fix the spelling of Degradation
 
 @gee_gateway.route('/getImagePlotDegradition', methods=['POST'])
 def get_image_plot_degradition():
@@ -984,55 +1052,6 @@ def get_degradition_tile_url():
         }
     return jsonify(values), 200
 
-
-@gee_gateway.route('/getTileUrlFromFeatureCollection', methods=['POST'])
-def getTileUrlFromFeatureCollection():
-    values = {}
-    try:
-        json = request.get_json()
-        if json:
-            defaultVisParams = {"max": 1, "palette": ['red']}
-            featureCollection = json.get('featureCollection', None)
-            field = json.get('field', 'PLOTID')
-            matchID = int(json.get('matchID', None))
-            visParams = json.get('visParams', defaultVisParams)
-            if visParams == {}:
-                visParams = defaultVisParams
-            values = {
-                "url": getFeatureCollectionTileUrl(featureCollection, field, matchID, visParams)
-            }
-    except GEEException as e:
-        logger.error(e.message)
-        values = {
-            'errMsg': e.message
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/FilteredSentinelSAR', methods=['POST'])
-def filtered_sentinel_sar():
-    values = {}
-    try:
-        request_json = request.get_json()
-        if request_json:
-            date_from = request_json.get('dateFrom', None)
-            date_to = request_json.get('dateTo', None)
-            bands = request_json.get('bands', 'VH,VV,VH/VV')
-            band_min = request_json.get('min', '0')
-            band_max = request_json.get('max', '0.3')
-            db_value = request_json.get('dbValue', False)
-            vis_params = {
-                'min': band_min,
-                'max': band_max,
-                'bands': bands
-            }
-            values = filteredSentinelSARComposite(vis_params, db_value, date_from, date_to)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
 
 ############################### Unknown, ie not in CEO ##############################
 
