@@ -667,7 +667,7 @@ def getStatistics(paramType, aOIPoly):
         ee.Reducer.minMax(), poly, 1000, maxPixels=500000000)
     minElev = minmaxElev.get('elevation_min').getInfo()
     maxElev = minmaxElev.get('elevation_max').getInfo()
-    ciesinPopGrid = ee.Image('CIESIN/GPWv4/population-count/2015')
+    ciesinPopGrid = ee.Image('CIESIN/GPWv4/population-count/2020')
     popDict = ciesinPopGrid.reduceRegion(
         ee.Reducer.sum(), poly, maxPixels=500000000)
     pop = popDict.get('population-count').getInfo()
@@ -735,7 +735,7 @@ def listAvailableBands(name, assetType):
     }
 
 
-def filteredSentinelSARComposite(visParams, dbValue, dateFrom, dateTo):
+def filteredSentinelSARComposite(visParams, dateFrom, dateTo):
     def toNatural(img):
         return ee.Image(10).pow(img.divide(10))
 
@@ -753,9 +753,7 @@ def filteredSentinelSARComposite(visParams, dbValue, dateFrom, dateTo):
         .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
         .filter(ee.Filter.eq('instrumentMode', 'IW'))
 
-    if not dbValue:
-        sentinel1 = sentinel1.map(toNatural)
-
+    sentinel1 = sentinel1.map(toNatural)
     sentinel1 = sentinel1.map(addRatioBands)
     median = sentinel1.median()
     return imageToMapId(median, visParams)
