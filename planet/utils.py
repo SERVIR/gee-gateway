@@ -3,35 +3,39 @@ import json
 
 import dateutil.parser
 import requests
-import logging
+from logging import getLogger, DEBUG
 from logging.handlers import RotatingFileHandler
 
-from shapely.geometry import CAP_STYLE
-from shapely.geometry import Polygon
+from shapely.geometry import CAP_STYLE, Polygon
 from shapely_geojson import dumps
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 handler = RotatingFileHandler(
     'gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
 logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(DEBUG)
 
 
 global PLANET_API_KEY
 global session
 
+
 def map_bounds(geometry):
     bounds = geometry.bounds
     return [[bounds[1], bounds[0]], [bounds[3], bounds[2]]]
 
+
 def p(data):
     print(json.dumps(data, indent=2))
+
 
 def pick(dictionary, keys):
     return dict((k, dictionary.get(k)) for k in keys)
 
+
 def feature_date(feature):
     return dateutil.parser.parse(feature['properties']['acquired']).strftime('%Y-%m-%d')
+
 
 def distinct_date(features):
     dates = []
@@ -43,6 +47,7 @@ def distinct_date(features):
             result.append(feature)
     return result
 
+
 def date_filter(start, end):
     return {
         'type': 'DateRangeFilter',
@@ -53,11 +58,15 @@ def date_filter(start, end):
         }
     }
 
+
 def within_days_filter(feature, days):
     date = dateutil.parser.parse(feature['properties']['acquired'])
-    start = (date - datetime.timedelta(days=days - 1)).strftime('%Y-%m-%d') + 'T00:00:00.000Z'
-    end = (date + datetime.timedelta(days=days)).strftime('%Y-%m-%d') + 'T23:59:59.000Z'
+    start = (date - datetime.timedelta(days=days - 1)
+             ).strftime('%Y-%m-%d') + 'T00:00:00.000Z'
+    end = (date + datetime.timedelta(days=days)
+           ).strftime('%Y-%m-%d') + 'T23:59:59.000Z'
     return date_filter(start, end)
+
 
 def geometry_filter(geometry):
     return {
@@ -66,17 +75,21 @@ def geometry_filter(geometry):
         'config': json.loads(dumps(geometry))
     }
 
+
 def string_filter(field_name, strings):
-    return  {
-        'type':'StringInFilter',
+    return {
+        'type': 'StringInFilter',
         'field_name': field_name,
         'config': strings
     }
 
 # The quality of a feature. Use clear_percent, with cloud_cover as a fallback
+
+
 def quality(feature):
     p = feature['properties']
-    quality = p.get('clear_percent')  # clear_percent [0, 100] only exist on newer features
+    # clear_percent [0, 100] only exist on newer features
+    quality = p.get('clear_percent')
     if quality is not None:
         return quality
     else:
@@ -84,14 +97,15 @@ def quality(feature):
         # Therefore we weight it a bit lower than clear_percent
         return (1 - p['cloud_cover']) * 50
 
+
 def search(item_types, filters,  sort=False):
     and_filter = {
         'type': 'AndFilter',
         'config': filters
     }
     request = {
-        'item_types' : item_types,
-        'filter' : and_filter
+        'item_types': item_types,
+        'filter': and_filter
     }
 
     def next_page(res_json):
@@ -101,26 +115,31 @@ def search(item_types, filters,  sort=False):
             next_url = links['_next']
             res = requests.get(next_url, auth=(PLANET_API_KEY, ''))
             if res.status_code >= 400:
-                raise ValueError('Error searching Planet. HTTP {}: {}'.format(res.status_code, res.reason))
+                raise ValueError('Error searching Planet. HTTP {}: {}'.format(
+                    res.status_code, res.reason))
             next_features = next_page(res.json())
             return features + next_features
         else:
             return features
-    res = session.post('https://api.planet.com/data/v1/quick-search', json=request)
+    res = session.post(
+        'https://api.planet.com/data/v1/quick-search', json=request)
     if res.status_code >= 400:
-        raise ValueError('Error searching Planet. HTTP {}: {}'.format(res.status_code, res.reason))
+        raise ValueError('Error searching Planet. HTTP {}: {}'.format(
+            res.status_code, res.reason))
     # There is unfortunately no ability to request sorted feature, so we have to get them all then sort them ourselves.
     # This means a whole lot of paging for long date-ranges. We might want to limit this...
     # We asked for them to implement the sorting, and they said they will.
     # We also asked for the ability to limit which metadata to return for each feature.
     features = next_page(res.json())
     if sort:
-        return list(sorted(features, key=lambda f: quality(f) , reverse=True))
+        return list(sorted(features, key=lambda f: quality(f), reverse=True))
     else:
         return features
 
+
 def features_layer(features, name='Planet'):
-    ids = [feature['properties']['item_type'] + ':' + feature['id'] for feature in features]
+    ids = [feature['properties']['item_type'] + ':' + feature['id']
+           for feature in features]
     # Request a tile URL for the feature ids. Unfortunately, we have no control over tile ordering in the resulting
     # tiles. This is something we asked for, so we can put best quality features at the top
     logger.error(PLANET_API_KEY)
@@ -131,24 +150,31 @@ def features_layer(features, name='Planet'):
         data={'ids': ', '.join(ids)}
     )
     if res.status_code >= 400:
-        raise ValueError('Error creating Planet tile. HTTP {}: {}'.format(res.status_code, res.reason))
+        raise ValueError('Error creating Planet tile. HTTP {}: {}'.format(
+            res.status_code, res.reason))
     layerID = res.json()['name']
     layerTiles = res.json()['tiles']
     return {"date": feature_date(features[0]), "layerID": layerID, "url": layerTiles}
 
 # Add a layer with features similar to one the requested one.
+
+
 def add_similar_features(feature, geometry, buffer):
     features = search(
         item_types=[feature['properties']['item_type']],
         filters=[
-            geometry_filter(geometry.buffer(buffer, cap_style=CAP_STYLE.square)), # 0.5, cap_style=CAP_STYLE.square)),  # Close by
+            # 0.5, cap_style=CAP_STYLE.square)),  # Close by
+            geometry_filter(geometry.buffer(
+                buffer, cap_style=CAP_STYLE.square)),
             within_days_filter(feature, 1),  # Same day
-            string_filter('instrument', [feature['properties']['instrument']])  # Same instrument
+            # Same instrument
+            string_filter('instrument', [feature['properties']['instrument']])
         ],
         sort=False
     )
     name = feature_date(feature)
     return features_layer(features, name)
+
 
 def getPlanetMapID(api_key, geometry, start, end=None, layerCount=1, item_types=['PSScene3Band', 'PSScene4Band'], buffer=0.5, addsimilar=True):
     logger.error("getPlanetMapID")
@@ -172,23 +198,24 @@ def getPlanetMapID(api_key, geometry, start, end=None, layerCount=1, item_types=
     features = search(  # Scenes in date range, intersecting the geometry centroid, sorted by quality
         item_types=item_types,
         filters=[
-            date_filter(fstart, fend), #date_filter(start, end),
+            date_filter(fstart, fend),  # date_filter(start, end),
             geometry_filter(Polygon(geometry)),
             string_filter('quality_category', ['standard'])
         ],
         sort=True
     )
-    best_features = distinct_date(features)[0:layerCount]  # The best n features with distinct date, sorted by quality
+    # The best n features with distinct date, sorted by quality
+    best_features = distinct_date(features)[0:layerCount]
     for feature in best_features[::-1]:  # Reverse the sorting and iterate
         #fullList.append(add_similar_features(feature, Polygon(geometry), buffer))
-        if addsimilar :
-            logger.error('Adding similar');
-            fullList.append(add_similar_features(feature, Polygon(geometry), buffer))
+        if addsimilar:
+            logger.error('Adding similar')
+            fullList.append(add_similar_features(
+                feature, Polygon(geometry), buffer))
         else:
-            logger.error('skipped similar');
+            logger.error('skipped similar')
             name = feature_date(feature)
             fullList.append(features_layer(features, name))
     if len(fullList) == 0:
-        fullList.append({"date": "null", "layerID": "null", "url":"null"})
+        fullList.append({"date": "null", "layerID": "null", "url": "null"})
     return fullList
-

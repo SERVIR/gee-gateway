@@ -1,22 +1,24 @@
 from flask_cors import CORS
-from gee.utils import *
-from gee.inputs import *
-from planet.utils import *
-from flask import Flask, request, jsonify, render_template, json, current_app, send_file, make_response
-import logging
+from flask import Flask, request, jsonify, render_template, json, current_app
+from logging import getLogger, DEBUG
 from logging.handlers import RotatingFileHandler
-import urllib
-import urllib.parse
-import distutils
-from distutils import util
-import ast
+from distutils.util import strtobool
+
+from gee.gee_exception import GEEException
+from gee.utils import initialize, listAvailableBands, imageToMapId, imageCollectionToMapId, \
+    firstImageInMosaicToMapId, meanImageInMosaicToMapId, firstCloudFreeImageInMosaicToMapId, \
+    filteredImageCompositeToMapId, filteredSentinelComposite, filteredSentinelSARComposite, \
+    filteredImageByIndexToMapId, getFeatureCollectionTileUrl, getTimeSeriesByCollectionAndIndex, \
+    getTimeSeriesByIndex, getStatistics, getDegradationPlotsByPoint, getDegradationPlotsByPointS1, \
+    getDegradationTileUrlByDate, getDegradationTileUrlByDateS1
+from planet.utils import getPlanetMapID
 
 # test
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 handler = RotatingFileHandler(
     'gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
 logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(DEBUG)
 
 gee_gateway = Flask(__name__, instance_relative_config=True,
                     static_url_path="/static", static_folder="./static")
@@ -45,14 +47,7 @@ def before():
         CORS(gee_gateway)
 
 
-@gee_gateway.route('/', methods=['GET'])
-def index():
-    return render_template('index.html')
-
-
-############################### CEO GeoDash ##############################
-
-# Helper Routes
+########## Helper routes ##########
 
 
 @gee_gateway.route('/getAvailableBands', methods=['POST'])
@@ -61,19 +56,10 @@ def get_available_bands():
     logger.error("Debugging getAvailableBands")
     try:
         request_json = request.get_json()
-        if request_json:
-            image_collection_name = request_json.get('imageCollection', None)
-            image_name = request_json.get('image', None)
-            if image_collection_name is None:
-                values = listAvailableBands(image_name, True)
-            else:
-                logger.error("getAvailableBands else")
-                actual_name = get_actual_collection(image_collection_name)
-                logger.error(actual_name + "spaces?")
-                values = listAvailableBands(actual_name, False)
-        else:
-            raise Exception(
-                "Need either image or imageCollection parameter containing the full name")
+        values = listAvailableBands(
+            request_json.get('assetName', None),
+            request_json.get('assetType', None)
+        )
     except Exception as e:
         logger.error(str(e))
         values = {
@@ -81,8 +67,8 @@ def get_available_bands():
         }
     return jsonify(values), 200
 
+########## ee.Image ##########
 
-# ee.Image
 
 @gee_gateway.route('/image', methods=['POST'])
 def image():
@@ -128,8 +114,8 @@ def image():
         }
     return jsonify(values), 200
 
+########## ee.ImageCollection ##########
 
-# ee.ImageCollection
 
 @gee_gateway.route('/imageCollection', methods=['POST'])
 def imageCollection():
@@ -369,59 +355,7 @@ def cloud_mask_image_by_mosaic_collection():
         }
     return jsonify(values), 200
 
-
-@gee_gateway.route('/ImageCollectionAsset', methods=['POST'])
-def image_collection_asset():
-    """
-    .. :quickref: FilteredSentinel;
-    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            imageName: "xx",
-            ImageCollectionAsset: "xx",
-            visParams: {
-                min: 0.0,
-                max: 0.0,
-                bands: "XX,XX,XX"
-            }
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String imageName: if requesting an image asset send the image name
-    :<json String ImageCollectionAsset: if requesting an imageCollection asset send the ImageCollection Asset name
-    :<json Object visParams: visParams
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            if 'imageName' in request_json:
-                collection = request_json.get('imageName', '')
-            else:
-                collection = request_json.get('ImageCollectionAsset', '')
-            vis_params = request_json.get('visParams', {})
-            values = getImageCollectionAsset(collection, vis_params)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-# ee.ImageCollection Pre defined
+########## Pre defined ee.ImageCollection ##########
 
 
 def get_actual_collection(name):
@@ -633,7 +567,8 @@ def image_collection_by_index():
     return jsonify(values), 200
 
 
-# ee.FeatureCollection
+########## ee.FeatureCollection ##########
+
 
 # TODO, this route inst really generic to any feature collections like the name suggests.
 @gee_gateway.route('/getTileUrlFromFeatureCollection', methods=['POST'])
@@ -659,8 +594,8 @@ def getTileUrlFromFeatureCollection():
         }
     return jsonify(values), 200
 
+########## Planet ##########
 
-# Planet
 
 @gee_gateway.route('/getPlanetTile', methods=['POST', 'GET'])
 def get_planet_tile():
@@ -678,7 +613,7 @@ def get_planet_tile():
             item_types = request_json.get(
                 'itemTypes', ['PSScene3Band', 'PSScene4Band'])
             buffer = int(request_json.get('buffer', 0.5))
-            add_similar = bool(distutils.util.strtobool(
+            add_similar = bool(strtobool(
                 request_json.get('addsimilar', 'True')))
             values = getPlanetMapID(
                 api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
@@ -693,7 +628,7 @@ def get_planet_tile():
             item_types = request.args.get(
                 'itemTypes', ['PSScene3Band', 'PSScene4Band'])
             buffer = int(request.args.get('buffer', 0.5))
-            add_similar = bool(distutils.util.strtobool(
+            add_similar = bool(strtobool(
                 request.args.get('addsimilar', 'True')))
             values = getPlanetMapID(
                 api_key, geometry, start, end, layer_count, item_types, buffer, add_similar)
@@ -704,8 +639,8 @@ def get_planet_tile():
         }
     return jsonify(values), 200
 
+########## Time Series ##########
 
-# Time Series
 
 @gee_gateway.route('/timeSeriesByAsset', methods=['POST'])
 def time_series_index():
@@ -830,7 +765,7 @@ def time_series_index2():
                 scale = float(request_json.get('scale', 30))
                 startDate = request_json.get('startDate', None)
                 endDate = request_json.get('endDate', None)
-                timeseries = getTimeSeriesByIndex2(
+                timeseries = getTimeSeriesByIndex(
                     index_name, scale, geometry, startDate, endDate, 'median')
                 values = {
                     'timeseries': timeseries
@@ -842,8 +777,8 @@ def time_series_index2():
         }
     return jsonify(values), 200
 
+########## Stats ##########
 
-# Stats
 
 @gee_gateway.route('/getStats', methods=['POST'])
 def get_stats():
@@ -885,8 +820,8 @@ def get_stats():
         }
     return jsonify(values), 200
 
+########## Degradation##########
 
-# Degradation
 
 @gee_gateway.route('/getImagePlotDegradation', methods=['POST'])
 def get_image_plot_degradation():
@@ -960,608 +895,3 @@ def get_degradation_tile_url():
             'errMsg': str(e)
         }
     return jsonify(values), 200
-
-
-############################### Unknown, ie not in CEO ##############################
-
-@gee_gateway.route('/timeSeriesAssetForPoint', methods=['POST'])
-def time_series_asset_for_point():
-    """
-    .. :quickref: TimeSeries For predefined asset; Get the timeseries for a predefined EE asset, date range and a point
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            point:  [0.0, 0.0],
-            dateFromTimeSeries: "YYYY-MM-DD",
-            dateToTimeSeries: "YYYY-MM-DD"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            timeseries: [
-                [0, 0.0],
-                ...
-            ]
-        }
-
-    :reqheader Accept: application/json
-    :<json Array point: the point which to reduce data
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            geometry = request_json.get('point', None)
-            date_from = request_json.get('dateFromTimeSeries', None)
-            date_to = request_json.get('dateToTimeSeries', None)
-            timeseries = getTimeSeriesAssetForPoint(
-                geometry, date_from, date_to)
-            print("have vals")
-            values = {
-                'timeseries': timeseries
-            }
-            print(str(values))
-        else:
-            logger.error("i didn't have json")
-    except GEEException as e:
-        logger.error(e)
-        values = {
-            'errMsg': e
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/getCHIRPSImage', methods=['POST'])
-def get_chirps_image():
-    """
-    .. :quickref: getCHIRPSImage; Get the xyz map tile url of a EE CHIRPS Image.
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-             url: "https://earthengine.googleapis.com/.../maps/xxxxx-xxxxxx/tiles/{z}/{x}/{y}"
-        }
-
-    :reqheader Accept: application/json
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :resheader Content-Type: application/json
-    """
-    try:
-        request_json = request.get_json()
-        if request_json:
-            values = filteredImageInCHIRPSToMapId(
-                request_json.get('dateFrom', None),
-                request_json.get('dateTo', None)
-            )
-        else:
-            raise Exception("invalid request type, please use json")
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/timeSeriesIndex3', methods=['POST'])
-def time_series_index3():
-    """
-    .. :quickref: TimeSeries3; Get the timeseries for a specific ImageCollection index,
-    ..            date range and a polygon OR a point
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            collectionName: "XX",
-            indexName: "XX"
-            scale: 0.0,
-            geometry: [
-                [0.0, 0.0],
-                [...]
-            ] OR [0.0, 0.0],
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            timeseries: [
-                [0, 0.0],
-                ...
-            ]
-        }
-
-    :reqheader Accept: application/json
-    :<json String collectionName: name of the image collection
-    :<json String index: name of the index:  (e.g. NDVI, NDWI, NVI)
-    :<json Float scale: scale in meters of the projection
-    :<json Array polygon: the region over which to reduce data
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if request_json:
-            geometry = request_json.get('polygon', None)  # deprecated
-            if not geometry:
-                geometry = request_json.get('geometry', None)
-            if geometry:
-                index_name = request_json.get('indexName', 'NDVI')
-                scale = float(request_json.get('scale', 30))
-                reducer = request_json.get('reducer', None)
-                date_from = request_json.get('dateFrom', None)
-                date_to = request_json.get('dateTo', None)
-                timeseries = getTimeSeriesByIndex2(
-                    index_name, scale, geometry, date_from, date_to, reducer)
-                values = {
-                    'timeseries': timeseries
-                }
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/timeSeriesForPoint', methods=['POST'])
-def time_series_for_point():
-    """
-    .. :quickref: TimeSeries ForPoint; Get the timeseries for LANDSAT, date range and a point
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            point:  [0.0, 0.0],
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            timeseries: [
-                [0, 0.0],
-                ...
-            ]
-        }
-
-    :reqheader Accept: application/json
-    :<json Array point: the point which to reduce data
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :resheader Content-Type: application/json
-    """
-    values = {}
-    try:
-        request_json = request.get_json()
-        if request_json:
-            geometry = request_json.get('point', None)
-            if geometry:
-                timeseries = getTimeSeriesForPoint(geometry)
-                values = {
-                    'timeseries': timeseries
-                }
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/timeSeriesIndexGet', methods=['GET'])
-def time_series_index_get():
-    """
-    .. :quickref: TimeSeries; Get the timeseries for a specific ImageCollection index, date range and polygon
-
-    **Example request**:
-
-    .. code-block:: javascript
-
-        {
-            collectionName: "XX",
-            indexName: "XX"
-            scale: 0.0,
-            polygon: [
-                [0.0, 0.0],
-                [...]
-            ],
-            dateFrom: "YYYY-MM-DD",
-            dateTo: "YYYY-MM-DD"
-        }
-
-    **Example response**:
-
-    .. code-block:: javascript
-
-        {
-            timeseries: [
-                [0, 0],
-                ...
-            ]
-        }
-
-    :reqheader Accept: application/json
-    :<json String collectionName: name of the image collection
-    :<json String index: name of the index:  (e.g. NDVI, NDWI, NVI)
-    :<json Float scale: scale in meters of the projection
-    :<json Array polygon: the region over which to reduce data
-    :<json String dateFrom: start date
-    :<json String dateTo: end date
-    :resheader Content-Type: application/json
-    """
-    try:
-        polygon = ast.literal_eval(urllib.parse.unquote(
-            request.args.get('polygon', None)).decode('utf8'))
-        index_name = request.args.get('indexName', 'NDVI')
-        scale = float(request.args.get('scale', 30))
-        date_from = request.args.get('dateFromTimeSeries', None)
-        date_to = request.args.get('dateToTimeSeries', None)
-        reducer = request.args.get('reducer', None)
-        timeseries = getTimeSeriesByIndex(
-            index_name, scale, polygon, date_from, date_to, reducer)
-        values = {
-            'timeseries': timeseries
-        }
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/asterMosaic', methods=['POST'])
-def aster_mosaic():
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            vis_params = request_json.get('visParams', None)
-            date_from = request_json.get('dateFrom', None)
-            date_to = request_json.get('dateTo', None)
-            values = getAsterMosaic(vis_params, date_from, date_to)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/ndviChange', methods=['POST'])
-def ndvi_change():
-    values = {}
-    try:
-        request_json = request.get_json()
-        if json:
-            vis_params = request_json.get('visParams', None)
-            year_from = request_json.get('yearFrom', None)
-            year_to = request_json.get('yearTo', None)
-            values = getNdviChange(vis_params, year_from, year_to)
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/getLatestImage', methods=['POST'])
-def get_latest_image():
-    values = {}
-    try:
-        request_json = request.get_json()
-        if request_json:
-            image_collection = request_json.get(
-                'imageCollection', "LANDSAT/LC08/C01/T1_TOA")
-            vis_params = request_json.get(
-                'visParams', {"bands": "B4,B3,B2", "max": "0.3"})
-            values = getLatestImageTileUrl(image_collection, vis_params)
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/getRangedImage', methods=['POST'])
-def get_ranged_image():
-    values = {}
-    try:
-        request_json = request.get_json()
-        if request_json:
-            image_collection = request_json.get(
-                'imageCollection', "LANDSAT/LC08/C01/T1_TOA")
-            vis_params = request_json.get(
-                'visParams', {"bands": "B4,B3,B2", "max": "0.3"})
-            dfrom = request_json.get('dateFrom', None)
-            dto = request_json.get('dateTo', None)
-            values = getRangedImageTileUrl(
-                image_collection, vis_params, dfrom, dto)
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-############################### TimeSync ##############################
-
-
-@gee_gateway.route('/ts')
-def tsIndex():
-    return 'TimeSync v4.0'
-
-
-@gee_gateway.route('/ts/images/<lng>/<lat>/<int:year>', methods=['GET'])
-def getAllLandsatImagesForPlot(lng, lat, year):
-    values = {}
-    try:
-        if year <= 1980:
-            year = None
-
-        values = getLandsatImages((float(lng), float(lat)), year)
-
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@gee_gateway.route('/ts/chip/<lng>/<lat>/<int:year>/<int:day>/<vis>', methods=['GET'])
-def getChipForYearByTargetDay(lng, lat, year, day, vis):
-    """
-    get image chip for specified year for plot coordinate.
-    """
-
-    values = {}
-    try:
-        values = getLandsatChipForYearByTargetDay(
-            (float(lng), float(lat)), year, day, vis)
-        fp = urllib.request.urlopen(values.get('chip_url'))
-        fname = '%s_%s.png' % (values.get('iid'), values.get('doy'))
-        response = make_response(send_file(
-            fp, mimetype='image/png', as_attachment=True, attachment_filename=fname))
-        response.headers['doy'] = values.get('doy')
-        response.headers['iid'] = values.get('iid')
-        response.headers['chip_url'] = values.get('chip_url')
-        return response, 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
-
-
-@gee_gateway.route('/ts/image_chip/<lng>/<lat>/<path:iid>/<vis>/<int:size>', methods=['GET'])
-def getImageChip(lng, lat, iid, vis, size=255):
-    """
-    get image chip for specified image
-
-    @param
-        {
-            "lat":
-            "lng":
-            "iid": LANDSAT/LE07/C01/T1_SR/LE07_045030_20000122
-            "vis":
-        }
-    @return
-    """
-
-    values = {}
-    try:
-        values = createChip(iid, (float(lng), float(lat)), vis, size)
-        fp = urllib.request.urlopen(values.get('chip_url'))
-        fname = '%s_%s.png' % (values.get('iid'), values.get('doy'))
-        response = make_response(send_file(
-            fp, mimetype='image/png', as_attachment=True, attachment_filename=fname))
-        response.headers['doy'] = values.get('doy')
-        response.headers['iid'] = values.get('iid')
-        response.headers['chip_url'] = values.get('chip_url')
-        return response, 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
-    # return jsonify(values), 200
-
-
-@gee_gateway.route('/ts/chip_url/<lng>/<lat>/<int:year>/<int:day>/<vis>', methods=['GET'])
-def getChipForYearByTargetDayURL(lng, lat, year, day, vis):
-    """
-    get image chip for specified year for plot coordinate.
-    """
-
-    values = {}
-    try:
-        values = getLandsatChipForYearByTargetDay(
-            (float(lng), float(lat)), year, day, vis)
-        return values.get('chip_url'), 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
-
-
-@gee_gateway.route('/ts/image_chip_url/<lng>/<lat>/<path:iid>/<vis>/<int:size>', methods=['GET'])
-def getImageChipURL(lng, lat, iid, vis, size=255):
-    """
-    get image chip for specified image
-
-    @param
-        {
-            "lat":
-            "lng":
-            "iid": LANDSAT/LE07/C01/T1_SR/LE07_045030_20000122
-            "vis":
-        }
-    @return
-    """
-
-    values = {}
-    try:
-        values = createChip(iid, (float(lng), float(lat)), vis, size)
-        return jsonify(values), 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
-    # return jsonify(values), 200
-
-
-@gee_gateway.route('/ts/image_chip_xyz/<lng>/<lat>/<path:iid>/<vis>/<int:size>', methods=['GET'])
-def getImageChipXYZ(lng, lat, iid, vis, size=255):
-    """
-    get image chip for specified image
-
-    @param
-        {
-            "lat":
-            "lng":
-            "iid": LANDSAT/LE07/C01/T1_SR/LE07_045030_20000122
-            "vis":
-        }
-    @return
-    """
-
-    values = {}
-    try:
-        values = createChipXYZ(iid, (float(lng), float(lat)), vis, size)
-        return jsonify(values), 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
-    # return jsonify(values), 200
-
-
-# TODO: refactory the next three methods
-@gee_gateway.route('/ts/spectrals/<lng>/<lat>', methods=['GET'])
-def getPlotSpectrals(lng, lat):
-    """
-    get spectral data for all the landsat images.
-
-    @param
-        {
-            "lat":
-            "lng":
-        }
-    @return
-    """
-    values = {}
-    try:
-        timeseries = getTsTimeSeriesForPoint((float(lng), float(lat)))
-        values = {
-            'timeseries': timeseries
-        }
-        return jsonify(values), 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
-
-
-@gee_gateway.route('/ts/spectrals/year/<int:year>/<lng>/<lat>', methods=['GET'])
-def getPlotSpectralsByYear(year, lng, lat):
-    """
-    get spectral data for all the landsat images closest to the target day
-
-    @param
-        {
-            "lat":
-            "lng":
-        }
-    @return
-    """
-    values = {}
-    try:
-        # timeseries = getTsTimeSeriesForPoint((float(lng), float(lat)))
-        timeseries = getTsTimeSeriesForPointByYear(
-            (float(lng), float(lat)), int(year))
-        values = {
-            'timeseries': timeseries
-        }
-        return jsonify(values), 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
-
-
-@gee_gateway.route('/ts/spectrals/day/<int:julday>/<lng>/<lat>', methods=['GET'])
-def getPlotSpectralsByJulday(julday, lng, lat):
-    """
-    get spectral data for all the landsat images closest to the target day
-
-    @param
-        {
-            "lat":
-            "lng":
-        }
-    @return
-    """
-    values = {}
-    try:
-        # timeseries = getTsTimeSeriesForPoint((float(lng), float(lat)))
-        timeseries = getTsTimeSeriesForPointByTargetDay(
-            (float(lng), float(lat)), int(julday))
-        values = {
-            'timeseries': timeseries
-        }
-        return jsonify(values), 200
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-        return jsonify(values), 500
