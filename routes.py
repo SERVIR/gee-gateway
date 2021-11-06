@@ -718,7 +718,6 @@ def getStats():
     .. code-block:: javascript
 
         {
-            paramType: "XX",
             extent: [
                 [0.0, 0.0],
                 [...]
@@ -732,16 +731,12 @@ def getStats():
         {maxElev: 1230, minElev: 1230, pop: 0}
 
     :reqheader Accept: application/json
-    :<json String paramType: basin, landscape, or ''
     :<json Array polygon: the region over which to reduce data
     :resheader Content-Type: application/json
     """
     try:
         requestJson = request.get_json()
-        values = getStatistics(
-            requestJson.get('paramType', None),
-            requestJson.get('extent', None)
-        )
+        values = getStatistics(requestJson.get('extent', None))
     except GEEException as e:
         logger.error(str(e))
         values = {
