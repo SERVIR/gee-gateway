@@ -35,6 +35,27 @@ def initialize(ee_account='', ee_key_path='', ee_user_token=''):
         pass
 
 
+def getReducer(reducerName):
+    if(reducerName == 'min'):
+        return ee.Reducer.min()
+    elif (reducerName == 'max'):
+        return ee.Reducer.max()
+    elif (reducerName == 'mean'):
+        return ee.Reducer.mean()
+    elif (reducerName == 'mode'):
+        return ee.Reducer.mode()
+    elif (reducerName == 'mosaic'):
+        return ee.Reducer.mosaic()
+    elif (reducerName == 'first'):
+        return ee.Reducer.first()
+    elif (reducerName == 'last'):
+        return ee.Reducer.last()
+    elif (reducerName == 'sum'):
+        return ee.Reducer.sum()
+    else:
+        return ee.Reducer.median()
+
+
 def imageToMapId(imageName, visParams={}):
     """  """
     try:
@@ -52,34 +73,20 @@ def imageToMapId(imageName, visParams={}):
         }
 
 
-def firstImageInMosaicToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None):
+def imageCollectionToMapId(collectionName, visParams={}, reducer=None, dateFrom=None, dateTo=None):
     """  """
     try:
         eeCollection = ee.ImageCollection(collectionName)
         if (dateFrom and dateTo):
             eeFilterDate = ee.Filter.date(dateFrom, dateTo)
             eeCollection = eeCollection.filter(eeFilterDate)
-        eeFirstImage = ee.Image(eeCollection.first())
-        values = imageToMapId(eeFirstImage, visParams)
-    except EEException as e:
-        logger.error(
-            "******firstImageInMosaicToMapId error************", sys.exc_info()[0])
-        raise GEEException(sys.exc_info()[0])
-    return values
-
-
-def meanImageInMosaicToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None):
-    """  """
-    try:
-        eeCollection = ee.ImageCollection(collectionName)
-        if (dateFrom and dateTo):
-            eeFilterDate = ee.Filter.date(dateFrom, dateTo)
-            eeCollection = eeCollection.filter(eeFilterDate)
-        eeMeanImage = ee.Image(eeCollection.mean())
+        eeMeanImage = ee.Image(eeCollection.reduce(getReducer(reducer)))
         values = imageToMapId(eeMeanImage, visParams)
     except EEException as e:
         raise GEEException(sys.exc_info()[0])
     return values
+
+# TODO, should we allow user to select first cloud free image again?
 
 
 def firstCloudFreeImageInMosaicToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None):
@@ -230,106 +237,86 @@ def getLandSatMergedCollection():
     return eeCollection
 
 
-def filteredImageNDVIToMapId(iniDate=None, endDate=None, outCollection=False):
+def filteredImageNDVIToMapId(iniDate=None, endDate=None):
     """  """
     def calcNDVI(img):
         return img.expression('(i.nir - i.red) / (i.nir + i.red)',  {'i': img}).rename(['NDVI']) \
             .set('system:time_start', img.get('system:time_start'))
     try:
-        # ee.ImageCollection(lt4.merge(lt5).merge(le7).merge(lc8))
         eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
         colorPalette = 'c9c0bf,435ebf,eee8aa,006400'
         visParams = {'opacity': 1, 'max': 1,
                      'min': -1, 'palette': colorPalette}
-        if outCollection:
-            values = eeCollection.map(calcNDVI)
-        else:
-            eviImage = ee.Image(eeCollection.map(calcNDVI).mean())
-            values = imageToMapId(eviImage, visParams)
+        eviImage = ee.Image(eeCollection.map(calcNDVI).mean())
+        values = imageToMapId(eviImage, visParams)
     except EEException as e:
         raise GEEException(sys.exc_info()[0])
     return values
 
 
-def filteredImageEVIToMapId(iniDate=None, endDate=None, outCollection=False):
+def filteredImageEVIToMapId(iniDate=None, endDate=None):
     """  """
     def calcEVI(img):
         return img.expression('2.5 * (i.nir - i.red) / (i.nir + 6.0 * i.red - 7.5 * i.blue + 1)',  {'i': img}).rename(['EVI']) \
             .set('system:time_start', img.get('system:time_start'))
     try:
-        # ee.ImageCollection(lt4.merge(lt5).merge(le7).merge(lc8))
         eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
         colorPalette = 'F5F5F5,E6D3C5,C48472,B9CF63,94BF3D,6BB037,42A333,00942C,008729,007824,004A16'
         visParams = {'opacity': 1, 'max': 1,
                      'min': -1, 'palette': colorPalette}
-        if outCollection:
-            values = eeCollection.map(calcEVI)
-        else:
-            eviImage = ee.Image(eeCollection.map(calcEVI).mean())
-            values = imageToMapId(eviImage, visParams)
+        eviImage = ee.Image(eeCollection.map(calcEVI).mean())
+        values = imageToMapId(eviImage, visParams)
     except EEException as e:
         raise GEEException(sys.exc_info()[0])
     return values
 
 
-def filteredImageEVI2ToMapId(iniDate=None, endDate=None, outCollection=False):
+def filteredImageEVI2ToMapId(iniDate=None, endDate=None):
     """  """
     def calcEVI2(img):
         return img.expression('2.5 * (i.nir - i.red) / (i.nir + 2.4 * i.red + 1)',  {'i': img}).rename(['EVI2']) \
             .set('system:time_start', img.get('system:time_start'))
     try:
-        # ee.ImageCollection(lt4.merge(lt5).merge(le7).merge(lc8))
         eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
         colorPalette = 'F5F5F5,E6D3C5,C48472,B9CF63,94BF3D,6BB037,42A333,00942C,008729,007824,004A16'
         visParams = {'opacity': 1, 'max': 1,
                      'min': -1, 'palette': colorPalette}
-        if outCollection:
-            values = eeCollection.map(calcEVI2)
-        else:
-            eviImage = ee.Image(eeCollection.map(calcEVI2).mean())
-            values = imageToMapId(eviImage, visParams)
+        eviImage = ee.Image(eeCollection.map(calcEVI2).mean())
+        values = imageToMapId(eviImage, visParams)
     except EEException as e:
         raise GEEException(sys.exc_info()[0])
     return values
 
 
-def filteredImageNDMIToMapId(iniDate=None, endDate=None, outCollection=False):
+def filteredImageNDMIToMapId(iniDate=None, endDate=None):
     """  """
     def calcNDMI(img):
         return img.expression('(i.nir - i.swir1) / (i.nir + i.swir1)',  {'i': img}).rename(['NDMI']) \
             .set('system:time_start', img.get('system:time_start'))
     try:
-        # ee.ImageCollection(lt4.merge(lt5).merge(le7).merge(lc8))
         eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
         colorPalette = '0000FE,2E60FD,31B0FD,00FEFE,50FE00,DBFE66,FEFE00,FFBB00,FF6F00,FE0000'
         visParams = {'opacity': 1, 'max': 1,
                      'min': -1, 'palette': colorPalette}
-        if outCollection:
-            values = eeCollection.map(calcNDMI)
-        else:
-            eviImage = ee.Image(eeCollection.map(calcNDMI).mean())
-            values = imageToMapId(eviImage, visParams)
+        eviImage = ee.Image(eeCollection.map(calcNDMI).mean())
+        values = imageToMapId(eviImage, visParams)
     except EEException as e:
         raise GEEException(sys.exc_info()[0])
     return values
 
 
-def filteredImageNDWIToMapId(iniDate=None, endDate=None, outCollection=False):
+def filteredImageNDWIToMapId(iniDate=None, endDate=None):
     """  """
     def calcNDWI(img):
         return img.expression('(i.green - i.nir) / (i.green + i.nir)',  {'i': img}).rename(['NDWI']) \
             .set('system:time_start', img.get('system:time_start'))
     try:
-        # ee.ImageCollection(lt4.merge(lt5).merge(le7).merge(lc8))
         eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
         colorPalette = '505050,E8E8E8,00FF33,003300'
         visParams = {'opacity': 1, 'max': 1,
                      'min': -1, 'palette': colorPalette}
-        if outCollection:
-            values = eeCollection.map(calcNDWI)
-        else:
-            eviImage = ee.Image(eeCollection.map(calcNDWI).mean())
-            values = imageToMapId(eviImage, visParams)
+        eviImage = ee.Image(eeCollection.map(calcNDWI).mean())
+        values = imageToMapId(eviImage, visParams)
     except EEException as e:
         raise GEEException(sys.exc_info()[0])
     return values
@@ -377,20 +364,13 @@ def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[
         def getIndex(image):
             """  """
             logger.error("entered getImage")
-            theReducer = None
-            if(reducer == 'min'):
-                theReducer = ee.Reducer.min()
-            elif (reducer == 'max'):
-                theReducer = ee.Reducer.max()
-            else:
-                theReducer = ee.Reducer.mean()
+            theReducer = getReducer(reducer)
             if indexName != None:
                 logger.error("had indexName: " + indexName)
                 indexValue = image.reduceRegion(
                     theReducer, geometry, scale).get(indexName)
-                #logger.error("had indexName: " + indexName + " and indexValue is: " + indexValue.getInfo())
             else:
-                logger.error("noooooooooo indexName")
+                logger.error("No indexName")
                 indexValue = image.reduceRegion(theReducer, geometry, scale)
             date = image.get('system:time_start')
             indexImage = ee.Image().set(
@@ -504,22 +484,14 @@ def getTimeSeriesByIndex(indexName, scale, coords=[], dateFrom=None, dateTo=None
 
     def reduceRegion(image):
         """  """
-        if reducer == "mean":
-            reduced = image.reduceRegion(
-                ee.Reducer.mean(), geometry=geometry, scale=scale, maxPixels=1e6)
-        elif reducer == "min":
-            reduced = image.reduceRegion(
-                ee.Reducer.min(), geometry=geometry, scale=scale, maxPixels=1e6)
-        elif reducer == "max":
-            reduced = image.reduceRegion(
-                ee.Reducer.max(), geometry=geometry, scale=scale, maxPixels=1e6)
-        else:
-            reduced = image.reduceRegion(
-                ee.Reducer.median(), geometry=geometry, scale=scale, maxPixels=1e6)
+        theReducer = getReducer(reducer)
+        reduced = image.reduceRegion(
+            theReducer, geometry=geometry, scale=scale, maxPixels=1e6)
         return ee.Feature(None, {
             'index': reduced.get('index'),
             'timeIndex': [image.get('system:time_start'), reduced.get('index')]
         })
+
     try:
         geometry = None
         if isinstance(coords[0], list):

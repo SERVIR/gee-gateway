@@ -8,10 +8,6 @@ A REST API designed to be used by [CEO (Collect Earth Online)](https://github.co
 
 ## INSTALLATION
 
-Follow this guide for your operating system. https://chriswarrick.com/blog/2016/02/10/deploying-python-web-apps-with-nginx-and-uwsgi-emperor/
-
-The following is a shorthand version for Debian / Ubuntu
-
 ### Global packages
 
 ```sh
