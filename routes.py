@@ -6,7 +6,6 @@ from distutils.util import strtobool
 
 from gee.gee_exception import GEEException
 from gee.utils import initialize, listAvailableBands, imageToMapId, imageCollectionToMapId, \
-    firstImageInMosaicToMapId, meanImageInMosaicToMapId, firstCloudFreeImageInMosaicToMapId, \
     filteredImageCompositeToMapId, filteredSentinelComposite, filteredSentinelSARComposite, \
     filteredImageByIndexToMapId, getFeatureCollectionTileUrl, getTimeSeriesByCollectionAndIndex, \
     getTimeSeriesByIndex, getStatistics, getDegradationPlotsByPoint, getDegradationPlotsByPointS1, \
@@ -306,8 +305,8 @@ def filteredSentinel2():
 # Only used for institution imagery
 
 
-@geeGateway.route('/filteredSentinel2SAR', methods=['POST'])
-def filteredSentinel2SAR():
+@geeGateway.route('/filteredSentinelSAR', methods=['POST'])
+def filteredSentinelSAR():
     values = {}
     try:
         requestJson = request.get_json()
@@ -377,8 +376,8 @@ def imageCollectionByIndex():
 
 
 # TODO, this route inst really generic to any feature collections like the name suggests.
-@geeGateway.route('/getTileUrlFromFeatureCollection', methods=['POST'])
-def getTileUrlFromFeatureCollection():
+@geeGateway.route('/featureCollection', methods=['POST'])
+def featureCollection():
     values = {}
     try:
         json = request.get_json()
@@ -549,11 +548,74 @@ def timeSeriesByIndex():
         }
     return jsonify(values), 200
 
+########## Degradation##########
+
+
+@geeGateway.route('/degradationTimeSeries', methods=['POST'])
+def degradationTimeSeries():
+    try:
+        requestJson = request.get_json()
+        geometry = requestJson.get('geometry')
+        startDate = requestJson.get('startDate')
+        endDate = requestJson.get('endDate')
+        graphBand = requestJson.get('graphBand', 'NDFI')
+        dataType = requestJson.get('dataType', 'landsat')
+        sensors = {"l4": True, "l5": True, "l7": True, "l8": True}
+        if dataType == 'landsat':
+            values = {
+                'timeseries': getDegradationPlotsByPoint(geometry, startDate, endDate, graphBand, sensors)
+            }
+        else:
+            values = {
+                'timeseries': getDegradationPlotsByPointS1(geometry, startDate, endDate, graphBand)
+            }
+    except Exception as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+@geeGateway.route('/degradationTileUrl', methods=['POST'])
+def degradationTileUrl():
+    try:
+        requestJson = request.get_json()
+        imageSate = requestJson.get('imageDate', None)
+        geometry = requestJson.get('geometry')
+        stretch = requestJson.get('stretch', 321)
+        visParams = {}
+        if stretch == 321:
+            visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
+        elif stretch == 543:
+            visParams = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
+        elif stretch == 453:
+            visParams = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
+        elif stretch == "SAR":
+            visParams = {'bands': 'VV,VH,VV/VH',
+                         'min': '-15,-25,.40', 'max': '0,-10,1', 'gamma': '1.6'}
+        degDataType = requestJson.get('degDataType', 'landsat')
+        if degDataType == 'landsat':
+            values = {
+                "url": getDegradationTileUrlByDate(geometry, imageSate, visParams)
+            }
+        else:
+            values = {
+                "url": getDegradationTileUrlByDateS1(geometry, imageSate, visParams)
+            }
+    except Exception as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
 ########## Stats ##########
 
 
-@geeGateway.route('/getStats', methods=['POST'])
-def getStats():
+@geeGateway.route('/statistics', methods=['POST'])
+def statistics():
     """
     .. :quickref: getStats; Get the population and elevation for a polygon
 
@@ -582,68 +644,6 @@ def getStats():
         requestJson = request.get_json()
         values = getStatistics(requestJson.get('extent', None))
     except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-########## Degradation##########
-
-
-@geeGateway.route('/getImagePlotDegradation', methods=['POST'])
-def getImagePlotDegradation():
-    try:
-        requestJson = request.get_json()
-        geometry = requestJson.get('geometry')
-        startDate = requestJson.get('startDate')
-        endDate = requestJson.get('endDate')
-        graphBand = requestJson.get('graphBand', 'NDFI')
-        dataType = requestJson.get('dataType', 'landsat')
-        sensors = {"l4": True, "l5": True, "l7": True, "l8": True}
-        if dataType == 'landsat':
-            values = {
-                'timeseries': getDegradationPlotsByPoint(geometry, startDate, endDate, graphBand, sensors)
-            }
-        else:
-            values = {
-                'timeseries': getDegradationPlotsByPointS1(geometry, startDate, endDate, graphBand)
-            }
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
-    return jsonify(values), 200
-
-
-@geeGateway.route('/getDegradationTileUrl', methods=['POST'])
-def getDegradationTileUrl():
-    try:
-        requestJson = request.get_json()
-        imageSate = requestJson.get('imageDate', None)
-        geometry = requestJson.get('geometry')
-        stretch = requestJson.get('stretch', 321)
-        visParams = {}
-        if stretch == 321:
-            visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
-        elif stretch == 543:
-            visParams = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
-        elif stretch == 453:
-            visParams = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
-        elif stretch == "SAR":
-            visParams = {'bands': 'VV,VH,VV/VH',
-                         'min': '-15,-25,.40', 'max': '0,-10,1', 'gamma': '1.6'}
-        degDataType = requestJson.get('degDataType', 'landsat')
-        if degDataType == 'landsat':
-            values = {
-                "url": getDegradationTileUrlByDate(geometry, imageSate, visParams)
-            }
-        else:
-            values = {
-                "url": getDegradationTileUrlByDateS1(geometry, imageSate, visParams)
-            }
-    except Exception as e:
         logger.error(str(e))
         values = {
             'errMsg': str(e)

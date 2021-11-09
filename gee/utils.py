@@ -16,6 +16,8 @@ handler = RotatingFileHandler(
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
+########## Helper functions ##########
+
 
 def initialize(ee_account='', ee_key_path='', ee_user_token=''):
     try:
@@ -55,6 +57,22 @@ def getReducer(reducerName):
     else:
         return ee.Reducer.median()
 
+########## Helper routes ##########
+
+
+def listAvailableBands(name, assetType):
+    eeImage = None
+    if assetType == "imageCollection":
+        eeImage = ee.ImageCollection(name).first()
+    else:
+        eeImage = ee.Image(name)
+    return {
+        'bands': eeImage.bandNames().getInfo(),
+        'imageName': name
+    }
+
+########## ee.Image ##########
+
 
 def imageToMapId(imageName, visParams={}):
     """  """
@@ -71,6 +89,8 @@ def imageToMapId(imageName, visParams={}):
         return {
             'errMsg': str(sys.exc_info()[0])
         }
+
+########## ee.ImageCollection ##########
 
 
 def imageCollectionToMapId(collectionName, visParams={}, reducer=None, dateFrom=None, dateTo=None):
@@ -129,6 +149,17 @@ def firstCloudFreeImageInMosaicToMapId(collectionName, visParams={}, dateFrom=No
     except EEException as e:
         raise GEEException(sys.exc_info()[0])
     return values
+
+########## ee.FeatureCollection ##########
+
+
+def getFeatureCollectionTileUrl(featureCollection, field, matchID, visParams):
+    fc = ee.FeatureCollection(featureCollection)
+    single = fc.filter(ee.Filter.equals(field, matchID))
+    mapId = ee.Image().paint(single, 0, 2).getMapId(visParams)
+    return mapId['tile_fetcher'].url_format
+
+########## Pre defined ee.ImageCollection ##########
 
 # Index Image Collection
 
@@ -340,6 +371,75 @@ def filteredImageByIndexToMapId(iniDate=None, endDate=None, index='NDVI'):
     return values
 
 
+def filteredImageCompositeToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None, metadataCloudCoverMax=90, simpleCompositeVariable=60):
+    """  """
+    try:
+        logger.error('******filteredImageCompositeToMapId************')
+        eeCollection = ee.ImageCollection(collectionName)
+        logger.error('******eeCollection ************')
+        if (dateFrom and dateTo):
+            eeFilterDate = ee.Filter.date(dateFrom, dateTo)
+            eeCollection = eeCollection.filter(eeFilterDate).filterMetadata(
+                'CLOUD_COVER', 'less_than', metadataCloudCoverMax)
+        eeMosaicImage = ee.Algorithms.Landsat.simpleComposite(
+            eeCollection, simpleCompositeVariable, 10, 40, True)
+        logger.error('******eeMosaicImage************')
+        values = imageToMapId(eeMosaicImage, visParams)
+    except EEException as e:
+        raise GEEException(sys.exc_info()[0])
+    return values
+
+
+def filteredSentinelComposite(visParams={}, dateFrom=None, dateTo=None, metadataCloudCoverMax=10):
+    def cloudScore(img):
+        def rescale(img, exp, thresholds):
+            return img.expression(exp, {'img': img}).subtract(thresholds[0]).divide(thresholds[1] - thresholds[0])
+        score = ee.Image(1.0)
+        score = score.min(rescale(img, 'img.B2', [0.1, 0.3]))
+        score = score.min(rescale(img, 'img.B4 + img.B3 + img.B2', [0.2, 0.8]))
+        score = score.min(
+            rescale(img, 'img.B8 + img.B11 + img.B12', [0.3, 0.8]))
+        ndsi = img.normalizedDifference(['B3', 'B11'])
+        return score.min(rescale(ndsi, 'img', [0.8, 0.6]))
+
+    def cloudScoreS2(img):
+        rescale = img.divide(10000)
+        score = cloudScore(rescale).multiply(100).rename('cloudscore')
+        return img.addBands(score)
+    sentinel2 = ee.ImageCollection('COPERNICUS/S2')
+    f2017s2 = sentinel2.filterDate(dateFrom, dateTo).filterMetadata(
+        'CLOUDY_PIXEL_PERCENTAGE', 'less_than', metadataCloudCoverMax)
+    m2017s2 = f2017s2.map(cloudScoreS2)
+    m2017s3 = m2017s2.median()
+    return imageToMapId(m2017s3, visParams)
+
+
+def filteredSentinelSARComposite(visParams, dateFrom, dateTo):
+    def toNatural(img):
+        return ee.Image(10).pow(img.divide(10))
+
+    def addRatioBands(img):
+        # not using angle band
+        vv = img.select('VV')
+        vh = img.select('VH')
+        vv_vh = vv.divide(vh).rename('VV/VH')
+        vh_vv = vh.divide(vv).rename('VH/VV')
+        return vv.addBands(vh).addBands(vv_vh).addBands(vh_vv)
+
+    sentinel1 = ee.ImageCollection('COPERNICUS/S1_GRD')
+    sentinel1 = sentinel1.filterDate(dateFrom, dateTo) \
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
+        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
+        .filter(ee.Filter.eq('instrumentMode', 'IW'))
+
+    sentinel1 = sentinel1.map(toNatural)
+    sentinel1 = sentinel1.map(addRatioBands)
+    median = sentinel1.median()
+    return imageToMapId(median, visParams)
+
+########## Time Series ##########
+
+
 def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[], dateFrom=None, dateTo=None, reducer=None):
     """  """
     logger.error(
@@ -390,31 +490,6 @@ def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[
         logger.error(str(e))
         raise GEEException(sys.exc_info()[0])
     return values
-
-
-def aggRegion(regionList):
-    """ helper function to take multiple values of region and aggregate to one value """
-    values = []
-    for i in range(len(regionList)):
-        if i != 0:
-            date = datetime.datetime.fromtimestamp(
-                regionList[i][-2]/1000.).strftime("%Y-%m-%d")
-            values.append([date, regionList[i][-1]])
-
-    sort = sorted(values, key=lambda x: x[0])
-
-    out = []
-    for key, group in groupby(sort, key=lambda x: x[0][:10]):
-        data = list(group)
-        agg = sum(j for i, j in data if j != None)
-        dates = key.split('-')
-        timestamp = datetime.datetime(
-            int(dates[0]), int(dates[1]), int(dates[2]))
-        if agg != 0:
-            out.append([int(timestamp.strftime('%s'))
-                       * 1000, agg/float(len(data))])
-
-    return out
 
 
 def getTimeSeriesByIndex(indexName, scale, coords=[], dateFrom=None, dateTo=None, reducer="median"):
@@ -511,6 +586,8 @@ def getTimeSeriesByIndex(indexName, scale, coords=[], dateFrom=None, dateTo=None
     return values
 
 
+########## Degradation##########
+
 def getDegradationTileUrlByDateS1(geometry, date, visParams):
     imDate = datetime.datetime.strptime(date, "%Y-%m-%d")
     befDate = imDate - datetime.timedelta(days=1)
@@ -602,7 +679,6 @@ def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
         theReducer = ee.Reducer.mean()
         indexValue = img.reduceRegion(theReducer, geometry, 30)
         date = img.get('system:time_start')
-        visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
         indexImage = ee.Image().set(
             'indexValue', [ee.Number(date), indexValue])
         return indexImage
@@ -612,24 +688,18 @@ def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
     return values
 
 
-def getFeatureCollectionTileUrl(featureCollection, field, matchID, visParams):
-    fc = ee.FeatureCollection(featureCollection)
-    single = fc.filter(ee.Filter.equals(field, matchID))
-    Pimage = ee.Image().paint(single, 0, 2)
-    iobj = Pimage.getMapId(visParams)
-    return iobj['tile_fetcher'].url_format
-
+########## Stats ##########
 
 def getStatistics(extent):
-    poly = ee.Geometry.Polygon(extent)
+    extentGeom = ee.Geometry.Polygon(extent)
     elev = ee.Image('USGS/GTOPO30')
     minmaxElev = elev.reduceRegion(
-        ee.Reducer.minMax(), poly, 1000, maxPixels=500000000)
+        ee.Reducer.minMax(), extentGeom, 1000, maxPixels=500000000)
     minElev = minmaxElev.get('elevation_min').getInfo()
     maxElev = minmaxElev.get('elevation_max').getInfo()
     ciesinPopGrid = ee.Image('CIESIN/GPWv4/population-count/2020')
     popDict = ciesinPopGrid.reduceRegion(
-        ee.Reducer.sum(), poly, maxPixels=500000000)
+        ee.Reducer.sum(), extentGeom, maxPixels=500000000)
     pop = popDict.get('population-count').getInfo()
     pop = int(pop)
     return {
@@ -637,82 +707,3 @@ def getStatistics(extent):
         'maxElev': maxElev,
         'pop': pop
     }
-
-
-def filteredImageCompositeToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None, metadataCloudCoverMax=90, simpleCompositeVariable=60):
-    """  """
-    try:
-        logger.error('******filteredImageCompositeToMapId************')
-        eeCollection = ee.ImageCollection(collectionName)
-        logger.error('******eeCollection ************')
-        if (dateFrom and dateTo):
-            eeFilterDate = ee.Filter.date(dateFrom, dateTo)
-            eeCollection = eeCollection.filter(eeFilterDate).filterMetadata(
-                'CLOUD_COVER', 'less_than', metadataCloudCoverMax)
-        eeMosaicImage = ee.Algorithms.Landsat.simpleComposite(
-            eeCollection, simpleCompositeVariable, 10, 40, True)
-        logger.error('******eeMosaicImage************')
-        values = imageToMapId(eeMosaicImage, visParams)
-    except EEException as e:
-        raise GEEException(sys.exc_info()[0])
-    return values
-
-
-def filteredSentinelComposite(visParams={}, dateFrom=None, dateTo=None, metadataCloudCoverMax=10):
-    def cloudScore(img):
-        def rescale(img, exp, thresholds):
-            return img.expression(exp, {'img': img}).subtract(thresholds[0]).divide(thresholds[1] - thresholds[0])
-        score = ee.Image(1.0)
-        score = score.min(rescale(img, 'img.B2', [0.1, 0.3]))
-        score = score.min(rescale(img, 'img.B4 + img.B3 + img.B2', [0.2, 0.8]))
-        score = score.min(
-            rescale(img, 'img.B8 + img.B11 + img.B12', [0.3, 0.8]))
-        ndsi = img.normalizedDifference(['B3', 'B11'])
-        return score.min(rescale(ndsi, 'img', [0.8, 0.6]))
-
-    def cloudScoreS2(img):
-        rescale = img.divide(10000)
-        score = cloudScore(rescale).multiply(100).rename('cloudscore')
-        return img.addBands(score)
-    sentinel2 = ee.ImageCollection('COPERNICUS/S2')
-    f2017s2 = sentinel2.filterDate(dateFrom, dateTo).filterMetadata(
-        'CLOUDY_PIXEL_PERCENTAGE', 'less_than', metadataCloudCoverMax)
-    m2017s2 = f2017s2.map(cloudScoreS2)
-    m2017s3 = m2017s2.median()
-    return imageToMapId(m2017s3, visParams)
-
-
-def listAvailableBands(name, assetType):
-    eeImage = None
-    if assetType == "imageCollection":
-        eeImage = ee.ImageCollection(name).first()
-    else:
-        eeImage = ee.Image(name)
-    return {
-        'bands': eeImage.bandNames().getInfo(),
-        'imageName': name
-    }
-
-
-def filteredSentinelSARComposite(visParams, dateFrom, dateTo):
-    def toNatural(img):
-        return ee.Image(10).pow(img.divide(10))
-
-    def addRatioBands(img):
-        # not using angle band
-        vv = img.select('VV')
-        vh = img.select('VH')
-        vv_vh = vv.divide(vh).rename('VV/VH')
-        vh_vv = vh.divide(vv).rename('VH/VV')
-        return vv.addBands(vh).addBands(vv_vh).addBands(vh_vv)
-
-    sentinel1 = ee.ImageCollection('COPERNICUS/S1_GRD')
-    sentinel1 = sentinel1.filterDate(dateFrom, dateTo) \
-        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
-        .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
-        .filter(ee.Filter.eq('instrumentMode', 'IW'))
-
-    sentinel1 = sentinel1.map(toNatural)
-    sentinel1 = sentinel1.map(addRatioBands)
-    median = sentinel1.median()
-    return imageToMapId(median, visParams)

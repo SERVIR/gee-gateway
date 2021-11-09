@@ -11,7 +11,6 @@ A REST API designed to be used by [CEO (Collect Earth Online)](https://github.co
 ### Global packages
 
 ```sh
-# Verify no need for uwsgi-emperor
 sudo apt install python3 python3-venv uwsgi uwsgi-plugin-python3 nginx-full
 ```
 
