@@ -3,17 +3,12 @@ import json
 
 import dateutil.parser
 import requests
-from logging import getLogger, DEBUG
-from logging.handlers import RotatingFileHandler
+from logging import getLogger
 
 from shapely.geometry import CAP_STYLE, Polygon
 from shapely_geojson import dumps
 
-logger = getLogger(__name__)
-handler = RotatingFileHandler(
-    'gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
-logger.addHandler(handler)
-logger.setLevel(DEBUG)
+logger = getLogger('_gee_gateway_')
 
 
 global PLANET_API_KEY

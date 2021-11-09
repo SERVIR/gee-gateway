@@ -2,15 +2,9 @@
 
 import ee
 
-import logging
-import logging.config
-from logging.handlers import RotatingFileHandler
+from logging import getLogger
 
-logger = logging.getLogger(__name__)
-handler = RotatingFileHandler(
-    'gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+logger = getLogger('_gee_gateway_')
 
 
 ##################################

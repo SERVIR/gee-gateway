@@ -1,10 +1,10 @@
 from flask_cors import CORS
-from flask import Flask, request, jsonify, render_template, json, current_app
+from flask import Flask, request, jsonify, json, current_app
+from werkzeug.exceptions import HTTPException
 from logging import getLogger, DEBUG
 from logging.handlers import RotatingFileHandler
 from distutils.util import strtobool
 
-from gee.gee_exception import GEEException
 from gee.utils import initialize, listAvailableBands, imageToMapId, imageCollectionToMapId, \
     filteredImageCompositeToMapId, filteredSentinelComposite, filteredSentinelSARComposite, \
     filteredImageByIndexToMapId, getFeatureCollectionTileUrl, getTimeSeriesByCollectionAndIndex, \
@@ -12,38 +12,62 @@ from gee.utils import initialize, listAvailableBands, imageToMapId, imageCollect
     getDegradationTileUrlByDate, getDegradationTileUrlByDateS1
 from planet.utils import getPlanetMapID
 
-# test
-logger = getLogger(__name__)
+logger = getLogger('_gee_gateway_')
 handler = RotatingFileHandler(
-    'gee-gateway-nginx.log', maxBytes=10485760, backupCount=10)
+    'gee-gateway.log',
+    maxBytes=10485760,
+    backupCount=5
+)
 logger.addHandler(handler)
 logger.setLevel(DEBUG)
 
-geeGateway = Flask(__name__, instance_relative_config=True,
-                   static_url_path="/static", static_folder="./static")
-geeGateway.config.from_object('config')
+geeGateway = Flask(
+    '_gee_gateway_',
+    instance_relative_config=True,
+    static_url_path="/static",
+    static_folder="./static"
+)
 geeGateway.config.from_pyfile('config.py', silent=True)
-# CORS(geeGateway)
+
+
+def safe_list_get(l, idx, default=None):
+    try:
+        return l[idx]
+    except IndexError:
+        return default
+
+
+@geeGateway.errorhandler(Exception)
+def handle_error(error):
+    logger.error(str(error))
+    if isinstance(error, HTTPException):
+        return error
+    response = jsonify({'errMsg': safe_list_get(error.args, 0)})
+    response.status_code = 200
+    return response
 
 
 @geeGateway.before_request
 def before():
-    ee_account = current_app.config.get('EE_ACCOUNT')
-    ee_key_path = current_app.config.get('EE_KEY_PATH')
-    if current_app.config.get('EE_TOKEN_ENABLED'):
-        if 'sepal-user' in request.headers:
-            user = json.loads(request.headers['sepal-user'])
-            google_tokens = user.get('googleTokens', None)
-            if google_tokens:
-                ee_user_token = google_tokens['accessToken']
-                initialize(ee_user_token=ee_user_token,
-                           ee_account=ee_account, ee_key_path=ee_key_path)
+    if request.headers.get('Content-type') == 'application/json':
+        ee_account = current_app.config.get('EE_ACCOUNT')
+        ee_key_path = current_app.config.get('EE_KEY_PATH')
+        if current_app.config.get('EE_TOKEN_ENABLED'):
+            if 'sepal-user' in request.headers:
+                user = json.loads(request.headers['sepal-user'])
+                google_tokens = user.get('googleTokens', None)
+                if google_tokens:
+                    ee_user_token = google_tokens['accessToken']
+                    initialize(ee_user_token=ee_user_token,
+                               ee_account=ee_account, ee_key_path=ee_key_path)
+            else:
+                initialize(ee_account=ee_account, ee_key_path=ee_key_path)
         else:
             initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+        if request.host == "localhost:8888":
+            CORS(geeGateway)
     else:
-        initialize(ee_account=ee_account, ee_key_path=ee_key_path)
-    if request.host == "localhost:8888":
-        CORS(geeGateway)
+        return "Invalid request.  Request must be of type application/json", 401
 
 
 ########## Helper routes ##########
@@ -52,18 +76,11 @@ def before():
 @geeGateway.route('/getAvailableBands', methods=['POST'])
 def getAvailableBands():
     """ To do: add definition """
-    logger.error("Debugging getAvailableBands")
-    try:
-        requestJson = request.get_json()
-        values = listAvailableBands(
-            requestJson.get('assetName', None),
-            requestJson.get('assetType', None)
-        )
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = listAvailableBands(
+        requestJson.get('assetName', None),
+        requestJson.get('assetType', None)
+    )
     return jsonify(values), 200
 
 ########## ee.Image ##########
@@ -76,7 +93,7 @@ def image():
     **Example request**:
     .. code-block:: javascript
         {
-            assetName: "XXX",
+            assetName: "XX",
             visParams: {
                 min: 0.0,
                 max: 0.0,
@@ -97,20 +114,11 @@ def image():
     :<json Object visParams: visualization parameters
     :resheader Content-Type: application/json
     """
-    try:
-        jsonp = request.get_json()
-        if jsonp:
-            values = imageToMapId(
-                jsonp.get('assetName', None),
-                jsonp.get('visParams', {})
-            )
-        else:
-            raise Exception("invalid request type, please use json")
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    jsonp = request.get_json()
+    values = imageToMapId(
+        jsonp.get('assetName', None),
+        jsonp.get('visParams', {})
+    )
     return jsonify(values), 200
 
 ########## ee.ImageCollection ##########
@@ -153,20 +161,14 @@ def imageCollection():
     :<json String endDate: end date
     :resheader Content-Type: application/json
     """
-    try:
-        requestJson = request.get_json()
-        values = imageCollectionToMapId(
-            requestJson.get('assetName', None),
-            requestJson.get('visParams', None),
-            requestJson.get('reducer', None),
-            requestJson.get('startDate', None),
-            requestJson.get('endDate', None)
-        )
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = imageCollectionToMapId(
+        requestJson.get('assetName', None),
+        requestJson.get('visParams', None),
+        requestJson.get('reducer', None),
+        requestJson.get('startDate', None),
+        requestJson.get('endDate', None)
+    )
     return jsonify(values), 200
 
 
@@ -222,27 +224,20 @@ def filteredLandsat():
     :<json String max: max
     :resheader Content-Type: application/json
     """
-    values = {}
-    try:
-        requestJson = request.get_json()
-        indexName = requestJson.get('indexName', 'LANDSAT5')
-        values = filteredImageCompositeToMapId(
-            getActualCollection(indexName),
-            {
-                'min': requestJson.get('min', '0.03,0.01,0.05'),
-                'max': requestJson.get('max', '0.45,0.5,0.4'),
-                'bands': requestJson.get('bands', 'B4,B5,B3')
-            },
-            requestJson.get('startDate', None),
-            requestJson.get('endDate', None),
-            requestJson.get('cloudLessThan', 90),
-            60 if indexName == 'LANDSAT7' else 50
-        )
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    indexName = requestJson.get('indexName', 'LANDSAT5')
+    values = filteredImageCompositeToMapId(
+        getActualCollection(indexName),
+        {
+            'min': requestJson.get('min', '0.03,0.01,0.05'),
+            'max': requestJson.get('max', '0.45,0.5,0.4'),
+            'bands': requestJson.get('bands', 'B4,B5,B3')
+        },
+        requestJson.get('startDate', None),
+        requestJson.get('endDate', None),
+        requestJson.get('cloudLessThan', 90),
+        60 if indexName == 'LANDSAT7' else 50
+    )
     return jsonify(values), 200
 
 
@@ -282,23 +277,16 @@ def filteredSentinel2():
     :<json String max: max
     :resheader Content-Type: application/json
     """
-    values = {}
-    try:
-        requestJson = request.get_json()
-        values = filteredSentinelComposite({
-            'min': requestJson.get('min', '0.03,0.01,0.05'),
-            'max': requestJson.get('max', '0.45,0.5,0.4'),
-            'bands': requestJson.get('bands', 'B4,B5,B3')
-        },
-            requestJson.get('startDate', None),
-            requestJson.get('endDate', None),
-            requestJson.get('cloudLessThan', 90)
-        )
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = filteredSentinelComposite({
+        'min': requestJson.get('min', '0.03,0.01,0.05'),
+        'max': requestJson.get('max', '0.45,0.5,0.4'),
+        'bands': requestJson.get('bands', 'B4,B5,B3')
+    },
+        requestJson.get('startDate', None),
+        requestJson.get('endDate', None),
+        requestJson.get('cloudLessThan', 90)
+    )
     return jsonify(values), 200
 
 
@@ -307,30 +295,23 @@ def filteredSentinel2():
 
 @geeGateway.route('/filteredSentinelSAR', methods=['POST'])
 def filteredSentinelSAR():
-    values = {}
-    try:
-        requestJson = request.get_json()
-        values = filteredSentinelSARComposite(
-            {
-                'min': requestJson.get('min', '0'),
-                'max': requestJson.get('max', '0.3'),
-                'bands': requestJson.get('bands', 'VH,VV,VH/VV')
-            },
-            requestJson.get('startDate', None),
-            requestJson.get('endDate', None)
-        )
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = filteredSentinelSARComposite(
+        {
+            'min': requestJson.get('min', '0'),
+            'max': requestJson.get('max', '0.3'),
+            'bands': requestJson.get('bands', 'VH,VV,VH/VV')
+        },
+        requestJson.get('startDate', None),
+        requestJson.get('endDate', None)
+    )
     return jsonify(values), 200
 
 
 @geeGateway.route('/imageCollectionByIndex', methods=['POST'])
 def imageCollectionByIndex():
     """
-    .. :quickref: ImageCollectionbyIndex; Get the xyz map tile url of a EE LANDSAT ImageCollection by requested Index.
+    .. :quickref: imageCollectionByIndex; Get the xyz map tile url of a EE LANDSAT ImageCollection by requested Index.
 
     **Example request**:
 
@@ -356,19 +337,12 @@ def imageCollectionByIndex():
     :<json String indexName: index requested, ie: NDVI, EVI, etc...
     :resheader Content-Type: application/json
     """
-    values = {}
-    try:
-        requestJson = request.get_json()
-        values = filteredImageByIndexToMapId(
-            requestJson.get('startDate', None),
-            requestJson.get('endDate', None),
-            requestJson.get('indexName', 'ndvi')
-        )
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = filteredImageByIndexToMapId(
+        requestJson.get('startDate', None),
+        requestJson.get('endDate', None),
+        requestJson.get('indexName')
+    )
     return jsonify(values), 200
 
 
@@ -379,22 +353,16 @@ def imageCollectionByIndex():
 @geeGateway.route('/featureCollection', methods=['POST'])
 def featureCollection():
     values = {}
-    try:
-        json = request.get_json()
-        values = {
-            "url": getFeatureCollectionTileUrl(
-                json.get('assetName', None),
-                json.get('field', 'PLOTID'),
-                int(json.get('matchID', None)),
-                {'max': 1, 'palette': ['red']} if json.get(
-                    'visParams', {}) == {} else json.get('visParams', {})
-            )
-        }
-    except GEEException as e:
-        logger.error(e.message)
-        values = {
-            'errMsg': e.message
-        }
+    requestJson = request.get_json()
+    values = {
+        "url": getFeatureCollectionTileUrl(
+            requestJson.get('assetName', None),
+            requestJson.get('field', 'PLOTID'),
+            int(requestJson.get('matchID', None)),
+            {'max': 1, 'palette': ['red']} if requestJson.get(
+                'visParams', {}) == {} else requestJson.get('visParams', {})
+        )
+    }
     return jsonify(values), 200
 
 ########## Planet ##########
@@ -403,22 +371,16 @@ def featureCollection():
 @geeGateway.route('/getPlanetTile', methods=['POST', 'GET'])
 def getPlanetTile():
     """ To do: add definition """
-    try:
-        requestJson = request.get_json() if request.method == 'POST' else request.args
-        values = getPlanetMapID(
-            requestJson.get('apiKey'),
-            requestJson.get('geometry'), requestJson.get('startDate'),
-            requestJson.get('endDate', None),
-            requestJson.get('layerCount', 1),
-            requestJson.get('itemTypes', ['PSScene3Band', 'PSScene4Band']),
-            float(requestJson.get('buffer', 0.5)),
-            bool(strtobool(requestJson.get('addsimilar', 'True')))
-        )
-    except Exception as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json() if request.method == 'POST' else request.args
+    values = getPlanetMapID(
+        requestJson.get('apiKey'),
+        requestJson.get('geometry'), requestJson.get('startDate'),
+        requestJson.get('endDate', None),
+        requestJson.get('layerCount', 1),
+        requestJson.get('itemTypes', ['PSScene3Band', 'PSScene4Band']),
+        float(requestJson.get('buffer', 0.5)),
+        bool(strtobool(requestJson.get('addsimilar', 'True')))
+    )
     return jsonify(values), 200
 
 ########## Time Series ##########
@@ -436,7 +398,7 @@ def timeSeriesByAsset():
 
         {
             assetName: "XX",
-            graphBand: "XX"
+            band: "XX"
             scale: 0.0,
             geometry: [
                 [0.0, 0.0],
@@ -467,24 +429,18 @@ def timeSeriesByAsset():
     :<json String endDate: end date
     :resheader Content-Type: application/json
     """
-    try:
-        requestJson = request.get_json()
-        values = {
-            'timeseries': getTimeSeriesByCollectionAndIndex(
-                requestJson.get('assetName', None),
-                requestJson.get('graphBand', None),
-                float(requestJson.get('scale', 30)),
-                requestJson.get('geometry', None),
-                requestJson.get('startDate', None),
-                requestJson.get('endDate', None),
-                requestJson.get('reducer', 'min').lower()
-            )
-        }
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = {
+        'timeseries': getTimeSeriesByCollectionAndIndex(
+            requestJson.get('assetName', None),
+            requestJson.get('band', None),
+            float(requestJson.get('scale', 30)),
+            requestJson.get('geometry', None),
+            requestJson.get('startDate', None),
+            requestJson.get('endDate', None),
+            requestJson.get('reducer', 'min').lower()
+        )
+    }
     return jsonify(values), 200
 
 
@@ -528,24 +484,17 @@ def timeSeriesByIndex():
     :<json String endDate: end date
     :resheader Content-Type: application/json
     """
-    values = {}
-    try:
-        requestJson = request.get_json()
-        values = {
-            'timeseries': getTimeSeriesByIndex(
-                requestJson.get('indexName', 'NDVI'),
-                float(requestJson.get('scale', 30)),
-                requestJson.get('geometry', None),
-                requestJson.get('startDate', None),
-                requestJson.get('endDate', None),
-                'median'
-            )
-        }
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = {
+        'timeseries': getTimeSeriesByIndex(
+            requestJson.get('indexName', 'NDVI'),
+            float(requestJson.get('scale', 30)),
+            requestJson.get('geometry', None),
+            requestJson.get('startDate', None),
+            requestJson.get('endDate', None),
+            'median'
+        )
+    }
     return jsonify(values), 200
 
 ########## Degradation##########
@@ -553,60 +502,49 @@ def timeSeriesByIndex():
 
 @geeGateway.route('/degradationTimeSeries', methods=['POST'])
 def degradationTimeSeries():
-    try:
-        requestJson = request.get_json()
-        geometry = requestJson.get('geometry')
-        startDate = requestJson.get('startDate')
-        endDate = requestJson.get('endDate')
-        graphBand = requestJson.get('graphBand', 'NDFI')
-        dataType = requestJson.get('dataType', 'landsat')
-        sensors = {"l4": True, "l5": True, "l7": True, "l8": True}
-        if dataType == 'landsat':
-            values = {
-                'timeseries': getDegradationPlotsByPoint(geometry, startDate, endDate, graphBand, sensors)
-            }
-        else:
-            values = {
-                'timeseries': getDegradationPlotsByPointS1(geometry, startDate, endDate, graphBand)
-            }
-    except Exception as e:
-        logger.error(str(e))
+    requestJson = request.get_json()
+    geometry = requestJson.get('geometry')
+    startDate = requestJson.get('startDate')
+    endDate = requestJson.get('endDate')
+    graphBand = requestJson.get('graphBand', 'NDFI')
+    dataType = requestJson.get('dataType', 'landsat')
+    sensors = {"l4": True, "l5": True, "l7": True, "l8": True}
+    if dataType == 'landsat':
         values = {
-            'errMsg': str(e)
+            'timeseries': getDegradationPlotsByPoint(geometry, startDate, endDate, graphBand, sensors)
+        }
+    else:
+        values = {
+            'timeseries': getDegradationPlotsByPointS1(geometry, startDate, endDate, graphBand)
         }
     return jsonify(values), 200
 
 
 @geeGateway.route('/degradationTileUrl', methods=['POST'])
 def degradationTileUrl():
-    try:
-        requestJson = request.get_json()
-        imageSate = requestJson.get('imageDate', None)
-        geometry = requestJson.get('geometry')
-        stretch = requestJson.get('stretch', 321)
-        visParams = {}
-        if stretch == 321:
-            visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
-        elif stretch == 543:
-            visParams = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
-        elif stretch == 453:
-            visParams = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
-        elif stretch == "SAR":
-            visParams = {'bands': 'VV,VH,VV/VH',
-                         'min': '-15,-25,.40', 'max': '0,-10,1', 'gamma': '1.6'}
-        degDataType = requestJson.get('degDataType', 'landsat')
-        if degDataType == 'landsat':
-            values = {
-                "url": getDegradationTileUrlByDate(geometry, imageSate, visParams)
-            }
-        else:
-            values = {
-                "url": getDegradationTileUrlByDateS1(geometry, imageSate, visParams)
-            }
-    except Exception as e:
-        logger.error(str(e))
+    requestJson = request.get_json()
+    imageSate = requestJson.get('imageDate', None)
+    geometry = requestJson.get('geometry')
+    stretch = requestJson.get('stretch', 321)
+    # pretty sure SAR is only for type != landsat
+    visParams = {}
+    if stretch == 321:
+        visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
+    elif stretch == 543:
+        visParams = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
+    elif stretch == 453:
+        visParams = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
+    elif stretch == "SAR":
+        visParams = {'bands': 'VV,VH,VV/VH',
+                     'min': '-15,-25,.40', 'max': '0,-10,1', 'gamma': '1.6'}
+    degDataType = requestJson.get('degDataType', 'landsat')
+    if degDataType == 'landsat':
         values = {
-            'errMsg': str(e)
+            "url": getDegradationTileUrlByDate(geometry, imageSate, visParams)
+        }
+    else:
+        values = {
+            "url": getDegradationTileUrlByDateS1(geometry, imageSate, visParams)
         }
     return jsonify(values), 200
 
@@ -640,12 +578,6 @@ def statistics():
     :<json Array polygon: the region over which to reduce data
     :resheader Content-Type: application/json
     """
-    try:
-        requestJson = request.get_json()
-        values = getStatistics(requestJson.get('extent', None))
-    except GEEException as e:
-        logger.error(str(e))
-        values = {
-            'errMsg': str(e)
-        }
+    requestJson = request.get_json()
+    values = getStatistics(requestJson.get('extent', None))
     return jsonify(values), 200
