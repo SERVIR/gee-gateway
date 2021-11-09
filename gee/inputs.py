@@ -208,6 +208,14 @@ def filterRegion(image_collection, region=None):
     else:
         return image_collection.filterBounds(region)
 
+def mergeLandsatCols(base_col, new_col, start, end, region, func):
+    filtered_new_col = filterRegion(new_col, region).filterDate(start, end)
+    filtered_new_col_size = filtered_new_col.toList(1).size().getInfo()
+    if filtered_new_col_size > 0:
+        filtered_new_col = filtered_new_col.map(func, True)
+        base_col = base_col.merge(filtered_new_col)
+    
+    return base_col
 def getLandsat(options):
     logger.error("going to get LANDSAT")
     if options is None:
@@ -244,56 +252,44 @@ def getLandsat(options):
             useMask = options['useMask']
         else:
             useMask = True
-
+        if 'sensors' in options:
+            sensors = options['sensors']
+        else:
+            sensors = {"l4": True, "l5": True, "l7": True, "l8": True}
         if useMask == 'No':
             useMask = False
         logger.error("all options set")
         logger.error("start, end" + start + ", " + end)
-        # Filter using new filtering functions
-        col = None
-        fcollection4 = filterRegion(ee.ImageCollection(
-            'LANDSAT/LT04/C01/T1_SR').filterDate(start, end), region)
-        f4size = fcollection4.toList(1).size().getInfo()
-        if f4size > 0:
-            collection4 = fcollection4.map(
-                prepareL4L5, True).sort('system:time_start')
-            col = collection4
-        fcollection5 = filterRegion(ee.ImageCollection(
-            'LANDSAT/LT05/C01/T1_SR').filterDate(start, end), region)
-        f5size = fcollection5.toList(1).size().getInfo()
-        if f5size > 0:
-            logger.error("inside f5size")
-            collection5 = fcollection5.map(
-                prepareL4L5, True).sort('system:time_start')
-            if col is None:
-                col = collection5
-            else:
-                col = col.merge(collection5)
-        fcollection7 = filterRegion(ee.ImageCollection(
-            'LANDSAT/LE07/C01/T1_SR').filterDate(start, end), region)
-        f7size = fcollection7.toList(1).size().getInfo()
-        if f7size > 0:
-            collection7 = fcollection7.map(
-                prepareL7, True).sort('system:time_start')
-            if col is None:
-                col = collection7
-            else:
-                col = col.merge(collection7)
-        fcollection8 = filterRegion(ee.ImageCollection(
-            'LANDSAT/LC08/C01/T1_SR').filterDate(start, end), region)
-        f8size = fcollection8.toList(1).size().getInfo()
-        if f8size > 0:
-            collection8 = fcollection8.map(
-                prepareL8, True).sort('system:time_start')
-            if col is None:
-                col = collection8
-            else:
-                col = col.merge(collection8)
+
+        col = ee.ImageCollection([]) #Empt collection to merge as we go
+        
+        fcollection4 = ee.ImageCollection('LANDSAT/LT04/C01/T1_SR')
+        col = mergeLandsatCols(col, fcollection4, start, end, region, prepareL4L5)
+        fcollection5 = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR')
+        col = mergeLandsatCols(col, fcollection5, start, end, region, prepareL4L5)
+        fcollection7 = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR')
+        col = mergeLandsatCols(col, fcollection7, start, end, region, prepareL7)
+        fcollection8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR')
+        col = mergeLandsatCols(col, fcollection8, start, end, region, prepareL8) 
 
         indices = doIndices(col).select(targetBands)
-
         indices = indices.filter(ee.Filter.dayOfYear(startDOY, endDOY))
-    return ee.ImageCollection(indices)
+
+        if "l5" not in sensors:
+            indices = indices.filterMetadata(
+                'SATELLITE', 'not_equals', 'LANDSAT_5')
+        if "l4" not in sensors:
+            indices = indices.filterMetadata(
+                'SATELLITE', 'not_equals', 'LANDSAT_4')
+        if "l7" not in sensors:
+            indices = indices.filterMetadata(
+                'SATELLITE', 'not_equals', 'LANDSAT_7')
+        if "l8" not in sensors:
+            indices = indices.filterMetadata(
+                'SATELLITE', 'not_equals', 'LANDSAT_8')
+        
+
+    return ee.ImageCollection(indices).sort('system:time_start')
 
 
 def getS1(options):
