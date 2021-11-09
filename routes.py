@@ -116,7 +116,7 @@ def image():
 @geeGateway.route('/imageCollection', methods=['POST'])
 def imageCollection():
     """
-    .. :quickref: firstImageByMosaicCollection; Get the xyz map tile url of a EE firstImageByMosaicCollection.
+    .. :quickref: imageCollection; Get the xyz map tile url of a EE ImageCollection.
 
     **Example request**:
 
@@ -180,8 +180,8 @@ def getActualCollection(name):
 @geeGateway.route('/filteredLandsat', methods=['POST'])
 def filteredLandsat():
     """
-    .. :quickref: FilteredSentinel;
-    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
+    .. :quickref: filteredLandsat;
+    .. Get the xyz map tile url of a EE Landsat filtered ImageCollection by requested Index.
 
     **Example request**:
 
@@ -233,8 +233,8 @@ def filteredLandsat():
 @geeGateway.route('/filteredSentinel2', methods=['POST'])
 def filteredSentinel2():
     """
-    .. :quickref: FilteredSentinel;
-    .. Get the xyz map tile url of a EE Sentinel filtered ImageCollection by requested Index.
+    .. :quickref: filteredSentinel2;
+    .. Get the xyz map tile url of a EE Sentinel2 filtered ImageCollection by requested Index.
 
     **Example request**:
 
