@@ -202,6 +202,11 @@ def prepareL8(image):
         validTOA, ee.List.repeat(1, len(validTOA)), 0)
     return ee.Image(image).addBands(scaled).updateMask(mask1.And(mask2).And(mask3).And(mask4))
 
+def filterRegion(image_collection, region=None):
+    if region is None:
+        return image_collection
+    else:
+        return image_collection.filterBounds(region)
 
 def getLandsat(options):
     logger.error("going to get LANDSAT")
@@ -249,15 +254,15 @@ def getLandsat(options):
         logger.error("start, end" + start + ", " + end)
         # Filter using new filtering functions
         col = None
-        fcollection4 = ee.ImageCollection(
-            'LANDSAT/LT04/C01/T1_SR').filterDate(start, end).filterBounds(region)
+        fcollection4 = filterRegion(ee.ImageCollection(
+            'LANDSAT/LT04/C01/T1_SR').filterDate(start, end), region)
         f4size = fcollection4.toList(1).size().getInfo()
         if f4size > 0:
             collection4 = fcollection4.map(
                 prepareL4L5, True).sort('system:time_start')
             col = collection4
-        fcollection5 = ee.ImageCollection(
-            'LANDSAT/LT05/C01/T1_SR').filterDate(start, end).filterBounds(region)
+        fcollection5 = filterRegion(ee.ImageCollection(
+            'LANDSAT/LT05/C01/T1_SR').filterDate(start, end), region)
         f5size = fcollection5.toList(1).size().getInfo()
         if f5size > 0:
             logger.error("inside f5size")
@@ -267,8 +272,8 @@ def getLandsat(options):
                 col = collection5
             else:
                 col = col.merge(collection5)
-        fcollection7 = ee.ImageCollection(
-            'LANDSAT/LE07/C01/T1_SR').filterDate(start, end).filterBounds(region)
+        fcollection7 = filterRegion(ee.ImageCollection(
+            'LANDSAT/LE07/C01/T1_SR').filterDate(start, end), region)
         f7size = fcollection7.toList(1).size().getInfo()
         if f7size > 0:
             collection7 = fcollection7.map(
@@ -277,8 +282,8 @@ def getLandsat(options):
                 col = collection7
             else:
                 col = col.merge(collection7)
-        fcollection8 = ee.ImageCollection(
-            'LANDSAT/LC08/C01/T1_SR').filterDate(start, end).filterBounds(region)
+        fcollection8 = filterRegion(ee.ImageCollection(
+            'LANDSAT/LC08/C01/T1_SR').filterDate(start, end), region)
         f8size = fcollection8.toList(1).size().getInfo()
         if f8size > 0:
             collection8 = fcollection8.map(
