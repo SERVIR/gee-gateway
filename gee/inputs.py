@@ -244,10 +244,7 @@ def getLandsat(options):
             useMask = options['useMask']
         else:
             useMask = True
-        if 'sensors' in options:
-            sensors = options['sensors']
-        else:
-            sensors = {"l4": True, "l5": True, "l7": True, "l8": True}
+
         if useMask == 'No':
             useMask = False
         logger.error("all options set")
