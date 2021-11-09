@@ -52,18 +52,7 @@ def before():
     if request.headers.get('Content-type') == 'application/json':
         ee_account = current_app.config.get('EE_ACCOUNT')
         ee_key_path = current_app.config.get('EE_KEY_PATH')
-        if current_app.config.get('EE_TOKEN_ENABLED'):
-            if 'sepal-user' in request.headers:
-                user = json.loads(request.headers['sepal-user'])
-                google_tokens = user.get('googleTokens', None)
-                if google_tokens:
-                    ee_user_token = google_tokens['accessToken']
-                    initialize(ee_user_token=ee_user_token,
-                               ee_account=ee_account, ee_key_path=ee_key_path)
-            else:
-                initialize(ee_account=ee_account, ee_key_path=ee_key_path)
-        else:
-            initialize(ee_account=ee_account, ee_key_path=ee_key_path)
+        initialize(ee_account=ee_account, ee_key_path=ee_key_path)
         if request.host == "localhost:8888":
             CORS(geeGateway)
     else:
