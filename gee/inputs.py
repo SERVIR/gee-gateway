@@ -293,8 +293,6 @@ def getLandsat(options):
             else:
                 col = col.merge(collection8)
 
-        if region is not None:
-            col = col.filterBounds(region)
         indices = doIndices(col).select(targetBands)
 
         indices = indices.filter(ee.Filter.dayOfYear(startDOY, endDOY))
