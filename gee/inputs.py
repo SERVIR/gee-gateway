@@ -346,13 +346,3 @@ def getS1(options):
     return data.select(targetBands)
 
 
-exports = {
-    getLandsat: getLandsat,
-    calcNDFI: calcNDFI,
-    calcNDVI: calcNDVI,
-    calcNBR: calcNBR,
-    calcEVI: calcEVI,
-    calcEVI2: calcEVI2,
-    tcTrans: tcTrans,
-    calcNDFI: calcNDFI
-}
