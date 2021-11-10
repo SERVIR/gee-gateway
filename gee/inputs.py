@@ -202,20 +202,21 @@ def prepareL8(image):
         validTOA, ee.List.repeat(1, len(validTOA)), 0)
     return ee.Image(image).addBands(scaled).updateMask(mask1.And(mask2).And(mask3).And(mask4))
 
-def filterRegion(image_collection, region=None):
+def filterRegion(collection, region=None):
     if region is None:
-        return image_collection
+        return collection
     else:
-        return image_collection.filterBounds(region)
+        return collection.filterBounds(region)
 
-def mergeLandsatCols(base_col, new_col, start, end, region, func):
-    filtered_new_col = filterRegion(new_col, region).filterDate(start, end)
-    filtered_new_col_size = filtered_new_col.toList(1).size().getInfo()
-    if filtered_new_col_size > 0:
-        filtered_new_col = filtered_new_col.map(func, True)
-        base_col = base_col.merge(filtered_new_col)
+def mergeLandsatCols(baseCollection, newCollection, start, end, region, func):
+    filteredNewCollection = filterRegion(newCollection, region).filterDate(start, end)
+    filteredNewCollectionSize = filteredNewCollection.toList(1).size().getInfo()
+    if filteredNewCollectionSize > 0:
+        filteredNewCollection = filteredNewCollection.map(func, True)
+        baseCollection = baseCollection.merge(filteredNewCollection)
     
-    return base_col
+    return baseCollection
+
 def getLandsat(options):
     logger.error("going to get LANDSAT")
     if options is None:
