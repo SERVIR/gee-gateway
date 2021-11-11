@@ -64,10 +64,10 @@ def listAvailableBands(name, assetType):
 ########## ee.Image ##########
 
 
-def imageToMapId(imageName, visParams={}):
+def imageToMapId(image, visParams):
     """  """
     logger.error('******imageToMapId************')
-    eeImage = ee.Image(imageName)
+    eeImage = ee.Image(image)
     mapId = eeImage.getMapId(visParams)
     # TODO, just return URL so the routes are easier to deduce whats being returned.
     return {
@@ -77,9 +77,9 @@ def imageToMapId(imageName, visParams={}):
 ########## ee.ImageCollection ##########
 
 
-def imageCollectionToMapId(collectionName, visParams={}, reducer=None, dateFrom=None, dateTo=None):
+def imageCollectionToMapId(assetName, visParams, reducer, dateFrom, dateTo):
     """  """
-    eeCollection = ee.ImageCollection(collectionName)
+    eeCollection = ee.ImageCollection(assetName)
     if (dateFrom and dateTo):
         eeFilterDate = ee.Filter.date(dateFrom, dateTo)
         eeCollection = eeCollection.filter(eeFilterDate)
@@ -89,17 +89,17 @@ def imageCollectionToMapId(collectionName, visParams={}, reducer=None, dateFrom=
 # TODO, should we allow user to select first cloud free image again?
 
 
-def firstCloudFreeImageInMosaicToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None):
+def firstCloudFreeImageInMosaicToMapId(assetName, visParams, dateFrom, dateTo):
     """  """
     skipCloudMask = False
-    eeCollection = ee.ImageCollection(collectionName)
+    eeCollection = ee.ImageCollection(assetName)
     if("b2" not in visParams["bands"].lower()):
         skipCloudMask = True
-    elif ("lc8" in collectionName.lower()):
+    elif ("lc8" in assetName.lower()):
         skipCloudMask = False
-    elif ("le7" in collectionName.lower()):
+    elif ("le7" in assetName.lower()):
         skipCloudMask = False
-    elif ("lt5" in collectionName.lower()):
+    elif ("lt5" in assetName.lower()):
         skipCloudMask = False
     else:
         skipCloudMask = True
@@ -110,11 +110,11 @@ def firstCloudFreeImageInMosaicToMapId(collectionName, visParams={}, dateFrom=No
     try:
         if(skipCloudMask == False):
             sID = ''
-            if ("lc8" in collectionName.lower()):
+            if ("lc8" in assetName.lower()):
                 sID = 'OLI_TIRS'
-            elif ("le7" in collectionName.lower()):
+            elif ("le7" in assetName.lower()):
                 sID = 'ETM'
-            elif ("lt5" in collectionName.lower()):
+            elif ("lt5" in assetName.lower()):
                 sID = 'TM'
             scored = ee.Algorithms.Landsat.simpleCloudScore(
                 eeFirstImage.set('SENSOR_ID', sID))
@@ -237,13 +237,13 @@ def getLandSatMergedCollection():
     return ee.ImageCollection(lt4.merge(lt5).merge(le7).merge(lc8).merge(s2))
 
 
-def filteredImageNDVIToMapId(iniDate=None, endDate=None):
+def filteredImageNDVIToMapId(startDate, endDate):
     """  """
     def calcNDVI(img):
         return img.expression('(i.nir - i.red) / (i.nir + i.red)',  {'i': img}).rename(['NDVI']) \
             .set('system:time_start', img.get('system:time_start'))
 
-    eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
+    eeCollection = getLandSatMergedCollection().filterDate(startDate, endDate)
     colorPalette = 'c9c0bf,435ebf,eee8aa,006400'
     visParams = {'opacity': 1, 'max': 1,
                  'min': -1, 'palette': colorPalette}
@@ -251,13 +251,13 @@ def filteredImageNDVIToMapId(iniDate=None, endDate=None):
     return imageToMapId(eviImage, visParams)
 
 
-def filteredImageEVIToMapId(iniDate=None, endDate=None):
+def filteredImageEVIToMapId(startDate, endDate):
     """  """
     def calcEVI(img):
         return img.expression('2.5 * (i.nir - i.red) / (i.nir + 6.0 * i.red - 7.5 * i.blue + 1)',  {'i': img}).rename(['EVI']) \
             .set('system:time_start', img.get('system:time_start'))
 
-    eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
+    eeCollection = getLandSatMergedCollection().filterDate(startDate, endDate)
     colorPalette = 'F5F5F5,E6D3C5,C48472,B9CF63,94BF3D,6BB037,42A333,00942C,008729,007824,004A16'
     visParams = {'opacity': 1, 'max': 1,
                  'min': -1, 'palette': colorPalette}
@@ -265,13 +265,13 @@ def filteredImageEVIToMapId(iniDate=None, endDate=None):
     return imageToMapId(eviImage, visParams)
 
 
-def filteredImageEVI2ToMapId(iniDate=None, endDate=None):
+def filteredImageEVI2ToMapId(startDate, endDate):
     """  """
     def calcEVI2(img):
         return img.expression('2.5 * (i.nir - i.red) / (i.nir + 2.4 * i.red + 1)',  {'i': img}).rename(['EVI2']) \
             .set('system:time_start', img.get('system:time_start'))
 
-    eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
+    eeCollection = getLandSatMergedCollection().filterDate(startDate, endDate)
     colorPalette = 'F5F5F5,E6D3C5,C48472,B9CF63,94BF3D,6BB037,42A333,00942C,008729,007824,004A16'
     visParams = {'opacity': 1, 'max': 1,
                  'min': -1, 'palette': colorPalette}
@@ -279,13 +279,13 @@ def filteredImageEVI2ToMapId(iniDate=None, endDate=None):
     return imageToMapId(eviImage, visParams)
 
 
-def filteredImageNDMIToMapId(iniDate=None, endDate=None):
+def filteredImageNDMIToMapId(startDate, endDate):
     """  """
     def calcNDMI(img):
         return img.expression('(i.nir - i.swir1) / (i.nir + i.swir1)',  {'i': img}).rename(['NDMI']) \
             .set('system:time_start', img.get('system:time_start'))
 
-    eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
+    eeCollection = getLandSatMergedCollection().filterDate(startDate, endDate)
     colorPalette = '0000FE,2E60FD,31B0FD,00FEFE,50FE00,DBFE66,FEFE00,FFBB00,FF6F00,FE0000'
     visParams = {'opacity': 1, 'max': 1,
                  'min': -1, 'palette': colorPalette}
@@ -293,13 +293,13 @@ def filteredImageNDMIToMapId(iniDate=None, endDate=None):
     return imageToMapId(eviImage, visParams)
 
 
-def filteredImageNDWIToMapId(iniDate=None, endDate=None):
+def filteredImageNDWIToMapId(startDate, endDate):
     """  """
     def calcNDWI(img):
         return img.expression('(i.green - i.nir) / (i.green + i.nir)',  {'i': img}).rename(['NDWI']) \
             .set('system:time_start', img.get('system:time_start'))
 
-    eeCollection = getLandSatMergedCollection().filterDate(iniDate, endDate)
+    eeCollection = getLandSatMergedCollection().filterDate(startDate, endDate)
     colorPalette = '505050,E8E8E8,00FF33,003300'
     visParams = {'opacity': 1, 'max': 1,
                  'min': -1, 'palette': colorPalette}
@@ -307,34 +307,42 @@ def filteredImageNDWIToMapId(iniDate=None, endDate=None):
     return imageToMapId(eviImage, visParams)
 
 
-def filteredImageByIndexToMapId(iniDate=None, endDate=None, index='NDVI'):
+def filteredImageByIndexToMapId(startDate, endDate, index):
     """  """
     if (index == 'NDVI'):
-        return filteredImageNDVIToMapId(iniDate, endDate)
+        return filteredImageNDVIToMapId(startDate, endDate)
     elif (index == 'EVI'):
-        return filteredImageEVIToMapId(iniDate, endDate)
+        return filteredImageEVIToMapId(startDate, endDate)
     elif (index == 'EVI2'):
-        return filteredImageEVI2ToMapId(iniDate, endDate)
+        return filteredImageEVI2ToMapId(startDate, endDate)
     elif (index == 'NDMI'):
-        return filteredImageNDMIToMapId(iniDate, endDate)
+        return filteredImageNDMIToMapId(startDate, endDate)
     elif (index == 'NDWI'):
-        return filteredImageNDWIToMapId(iniDate, endDate)
+        return filteredImageNDWIToMapId(startDate, endDate)
 
 
-def filteredImageCompositeToMapId(collectionName, visParams={}, dateFrom=None, dateTo=None, metadataCloudCoverMax=90, simpleCompositeVariable=60):
+def filteredImageCompositeToMapId(assetName, visParams, dateFrom, dateTo, metadataCloudCoverMax, simpleCompositeVariable):
     """  """
     logger.error('******filteredImageCompositeToMapId************')
-    eeCollection = ee.ImageCollection(collectionName)
+    eeCollection = ee.ImageCollection(assetName)
     if (dateFrom and dateTo):
-        eeFilterDate = ee.Filter.date(dateFrom, dateTo)
-        eeCollection = eeCollection.filter(eeFilterDate).filterMetadata(
-            'CLOUD_COVER', 'less_than', metadataCloudCoverMax)
+        eeCollection = eeCollection.filterDate(dateFrom, dateTo)
+    eeCollection.filterMetadata(
+        'CLOUD_COVER',
+        'less_than',
+        metadataCloudCoverMax
+    )
     eeMosaicImage = ee.Algorithms.Landsat.simpleComposite(
-        eeCollection, simpleCompositeVariable, 10, 40, True)
+        eeCollection,
+        simpleCompositeVariable,
+        10,
+        40,
+        True
+    )
     return imageToMapId(eeMosaicImage, visParams)
 
 
-def filteredSentinelComposite(visParams={}, dateFrom=None, dateTo=None, metadataCloudCoverMax=10):
+def filteredSentinelComposite(visParams, dateFrom, dateTo, metadataCloudCoverMax):
     def cloudScore(img):
         def rescale(img, exp, thresholds):
             return img.expression(exp, {'img': img}).subtract(thresholds[0]).divide(thresholds[1] - thresholds[0])
@@ -386,7 +394,7 @@ def filteredSentinelSARComposite(visParams, dateFrom, dateTo):
 ########## Time Series ##########
 
 
-def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[], dateFrom=None, dateTo=None, reducer=None):
+def getTimeSeriesByCollectionAndIndex(assetName, indexName, scale, coords, dateFrom, dateTo, reducer):
     """  """
     logger.error(
         "************getTimeSeriesByCollectionAndIndex**********************")
@@ -397,14 +405,14 @@ def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[
     else:
         geometry = ee.Geometry.Point(coords)
     if indexName != None:
-        logger.error("collection: " + collectionName +
+        logger.error("collection: " + assetName +
                      " - indexName: " + indexName)
-        indexCollection = ee.ImageCollection(collectionName).filterDate(
+        indexCollection = ee.ImageCollection(assetName).filterDate(
             dateFrom, dateTo).select(indexName)
     else:
         logger.error("indexName missing")
         indexCollection = ee.ImageCollection(
-            collectionName).filterDate(dateFrom, dateTo)
+            assetName).filterDate(dateFrom, dateTo)
 
     def getIndex(image):
         """  """
@@ -434,7 +442,7 @@ def getTimeSeriesByCollectionAndIndex(collectionName, indexName, scale, coords=[
     return indexCollection2.getInfo()
 
 
-def getTimeSeriesByIndex(indexName, scale, coords=[], dateFrom=None, dateTo=None, reducer="median"):
+def getTimeSeriesByIndex(indexName, scale, coords, dateFrom, dateTo, reducer):
     """  """
     bandsByCollection = {
         'LANDSAT/LC08/C01/T1_TOA': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
@@ -546,12 +554,11 @@ def getDegradationTileUrlByDateS1(geometry, date, visParams):
     selectedImage = sentinel1Data.filterDate(start, end).first()
 
     selectedImage = ee.Image(selectedImage)
-
     mapparams = selectedImage.getMapId(visParams)
     return mapparams['tile_fetcher'].url_format
 
 
-def getDegradationPlotsByPointS1(geometry, start, end, band):
+def getDegradationPlotsByPointS1(geometry, start, end):
     if isinstance(geometry[0], list):
         geometry = ee.Geometry.Polygon(geometry)
     else:
@@ -559,7 +566,8 @@ def getDegradationPlotsByPointS1(geometry, start, end, band):
 
     sentinel1Data = getS1({
         "targetBands": ['VV', 'VH', 'VV/VH'],
-        'region': geometry}).filterDate(start, end)
+        'region': geometry
+    }).filterDate(start, end)
 
     def myimageMapper(img):
         theReducer = ee.Reducer.mean()
@@ -577,17 +585,18 @@ def getDegradationPlotsByPointS1(geometry, start, end, band):
 
 
 def getDegradationTileUrlByDate(geometry, date, visParams):
+    logger.error("***getDegradationTileUrlByDate***")
     imDate = datetime.datetime.strptime(date, "%Y-%m-%d")
-    befDate = imDate - datetime.timedelta(days=1)
-    aftDate = imDate + datetime.timedelta(days=1)
-
+    startDate = imDate - datetime.timedelta(days=1)
+    endDate = imDate + datetime.timedelta(days=1)
     if isinstance(geometry[0], list):
         geometry = ee.Geometry.Polygon(geometry)
     else:
         geometry = ee.Geometry.Point(geometry)
+    logger.error("***made geom***")
     landsatData = getLandsat({
-        "start": befDate.strftime('%Y-%m-%d'),
-        "end": aftDate.strftime('%Y-%m-%d'),
+        "start": startDate.strftime('%Y-%m-%d'),
+        "end": endDate.strftime('%Y-%m-%d'),
         "targetBands": ['RED', 'GREEN', 'BLUE', 'SWIR1', 'NIR'],
         "region": geometry,
         "sensors": {"l4": False, "l5": False, "l7": False, "l8": True}
@@ -599,7 +608,7 @@ def getDegradationTileUrlByDate(geometry, date, visParams):
     return mapparams['tile_fetcher'].url_format
 
 
-def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
+def getDegradationPlotsByPoint(geometry, start, end, band):
     if isinstance(geometry[0], list):
         geometry = ee.Geometry.Polygon(geometry)
     else:
@@ -607,20 +616,21 @@ def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
     landsatData = getLandsat({
         "start": start,
         "end": end,
-        # ['SWIR1','NIR','RED','GREEN','BLUE','SWIR2','NDFI'],
         "targetBands": [band],
         "region": geometry,
-        "sensors": sensors  # {"l4": True, "l5": True, "l7": True, "l8": True}
+        "sensors": {"l4": True, "l5": True, "l7": True, "l8": True}
     })
 
-    def myimageMapper(img):
+    def myImageMapper(img):
         theReducer = ee.Reducer.mean()
         indexValue = img.reduceRegion(theReducer, geometry, 30)
         date = img.get('system:time_start')
         indexImage = ee.Image().set(
-            'indexValue', [ee.Number(date), indexValue])
+            'indexValue',
+            [ee.Number(date), indexValue]
+        )
         return indexImage
-    lsd = landsatData.map(myimageMapper, True)
+    lsd = landsatData.map(myImageMapper, True)
     indexCollection2 = lsd.aggregate_array('indexValue')
     values = indexCollection2.getInfo()
     return values

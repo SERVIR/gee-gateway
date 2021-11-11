@@ -37,6 +37,14 @@ def safe_list_get(l, idx, default=None):
         return default
 
 
+def get_default(dict, key, default=None):
+    val = dict.get(key)
+    if val is None or val == "":
+        return default
+    else:
+        return val
+
+
 @geeGateway.errorhandler(Exception)
 def handle_error(error):
     logger.error(str(error))
@@ -67,8 +75,8 @@ def getAvailableBands():
     """ To do: add definition """
     requestJson = request.get_json()
     values = listAvailableBands(
-        requestJson.get('assetName', None),
-        requestJson.get('assetType', None)
+        get_default(requestJson, 'assetName'),
+        get_default(requestJson, 'assetType')
     )
     return jsonify(values), 200
 
@@ -103,10 +111,10 @@ def image():
     :<json Object visParams: visualization parameters
     :resheader Content-Type: application/json
     """
-    jsonp = request.get_json()
+    requestJson = request.get_json()
     values = imageToMapId(
-        jsonp.get('assetName', None),
-        jsonp.get('visParams', {})
+        get_default(requestJson, 'assetName'),
+        get_default(requestJson, 'visParams', {})
     )
     return jsonify(values), 200
 
@@ -152,11 +160,11 @@ def imageCollection():
     """
     requestJson = request.get_json()
     values = imageCollectionToMapId(
-        requestJson.get('assetName', None),
-        requestJson.get('visParams', None),
-        requestJson.get('reducer', None),
-        requestJson.get('startDate', None),
-        requestJson.get('endDate', None)
+        get_default(requestJson, 'assetName', None),
+        get_default(requestJson, 'visParams', None),
+        get_default(requestJson, 'reducer', None),
+        get_default(requestJson, 'startDate', None),
+        get_default(requestJson, 'endDate', None)
     )
     return jsonify(values), 200
 
@@ -214,17 +222,17 @@ def filteredLandsat():
     :resheader Content-Type: application/json
     """
     requestJson = request.get_json()
-    indexName = requestJson.get('indexName', 'LANDSAT5')
+    indexName = get_default(requestJson, 'indexName')
     values = filteredImageCompositeToMapId(
         getActualCollection(indexName),
         {
-            'min': requestJson.get('min', '0.03,0.01,0.05'),
-            'max': requestJson.get('max', '0.45,0.5,0.4'),
-            'bands': requestJson.get('bands', 'B4,B5,B3')
+            'min': get_default(requestJson, 'min', '0.03,0.01,0.05'),
+            'max': get_default(requestJson, 'max', '0.45,0.5,0.4'),
+            'bands': get_default(requestJson, 'bands', 'B4,B5,B3')
         },
-        requestJson.get('startDate', None),
-        requestJson.get('endDate', None),
-        requestJson.get('cloudLessThan', 90),
+        get_default(requestJson, 'startDate'),
+        get_default(requestJson, 'endDate'),
+        get_default(requestJson, 'cloudLessThan', 90),
         60 if indexName == 'LANDSAT7' else 50
     )
     return jsonify(values), 200
@@ -267,14 +275,17 @@ def filteredSentinel2():
     :resheader Content-Type: application/json
     """
     requestJson = request.get_json()
-    values = filteredSentinelComposite({
-        'min': requestJson.get('min', '0.03,0.01,0.05'),
-        'max': requestJson.get('max', '0.45,0.5,0.4'),
-        'bands': requestJson.get('bands', 'B4,B5,B3')
-    },
-        requestJson.get('startDate', None),
-        requestJson.get('endDate', None),
-        requestJson.get('cloudLessThan', 90)
+    visParams = {
+        'min': get_default(requestJson, 'min', '0.03,0.01,0.05'),
+        'max': get_default(requestJson, 'max', '0.45,0.5,0.4'),
+        'bands': get_default(requestJson, 'bands', 'B4,B5,B3')
+    }
+    print("setnitel!")
+    values = filteredSentinelComposite(
+        visParams,
+        get_default(requestJson, 'startDate'),
+        get_default(requestJson, 'endDate'),
+        get_default(requestJson, 'cloudLessThan', 90)
     )
     return jsonify(values), 200
 
@@ -287,12 +298,12 @@ def filteredSentinelSAR():
     requestJson = request.get_json()
     values = filteredSentinelSARComposite(
         {
-            'min': requestJson.get('min', '0'),
-            'max': requestJson.get('max', '0.3'),
-            'bands': requestJson.get('bands', 'VH,VV,VH/VV')
+            'min': get_default(requestJson, 'min', '0'),
+            'max': get_default(requestJson, 'max', '0.3'),
+            'bands': get_default(requestJson, 'bands', 'VH,VV,VH/VV')
         },
-        requestJson.get('startDate', None),
-        requestJson.get('endDate', None)
+        get_default(requestJson, 'startDate', None),
+        get_default(requestJson, 'endDate', None)
     )
     return jsonify(values), 200
 
@@ -328,9 +339,9 @@ def imageCollectionByIndex():
     """
     requestJson = request.get_json()
     values = filteredImageByIndexToMapId(
-        requestJson.get('startDate', None),
-        requestJson.get('endDate', None),
-        requestJson.get('indexName')
+        get_default(requestJson, 'startDate', None),
+        get_default(requestJson, 'endDate', None),
+        get_default(requestJson, 'indexName')
     )
     return jsonify(values), 200
 
@@ -345,11 +356,11 @@ def featureCollection():
     requestJson = request.get_json()
     values = {
         "url": getFeatureCollectionTileUrl(
-            requestJson.get('assetName', None),
-            requestJson.get('field', 'PLOTID'),
-            int(requestJson.get('matchID', None)),
-            {'max': 1, 'palette': ['red']} if requestJson.get(
-                'visParams', {}) == {} else requestJson.get('visParams', {})
+            get_default(requestJson, 'assetName', None),
+            get_default(requestJson, 'field', 'PLOTID'),
+            int(get_default(requestJson, 'matchID', 1)),
+            {'max': 1, 'palette': ['red']} if get_default(requestJson,
+                                                          'visParams', {}) == {} else get_default(requestJson, 'visParams', {})
         )
     }
     return jsonify(values), 200
@@ -362,13 +373,15 @@ def getPlanetTile():
     """ To do: add definition """
     requestJson = request.get_json() if request.method == 'POST' else request.args
     values = getPlanetMapID(
-        requestJson.get('apiKey'),
-        requestJson.get('geometry'), requestJson.get('startDate'),
-        requestJson.get('endDate', None),
-        requestJson.get('layerCount', 1),
-        requestJson.get('itemTypes', ['PSScene3Band', 'PSScene4Band']),
-        float(requestJson.get('buffer', 0.5)),
-        bool(strtobool(requestJson.get('addsimilar', 'True')))
+        get_default(requestJson, 'apiKey'),
+        get_default(requestJson, 'geometry'), get_default(
+            requestJson, 'startDate'),
+        get_default(requestJson, 'endDate', None),
+        get_default(requestJson, 'layerCount', 1),
+        get_default(requestJson, 'itemTypes', [
+                    'PSScene3Band', 'PSScene4Band']),
+        float(get_default(requestJson, 'buffer', 0.5)),
+        bool(strtobool(get_default(requestJson, 'addsimilar', 'True')))
     )
     return jsonify(values), 200
 
@@ -421,13 +434,13 @@ def timeSeriesByAsset():
     requestJson = request.get_json()
     values = {
         'timeseries': getTimeSeriesByCollectionAndIndex(
-            requestJson.get('assetName', None),
-            requestJson.get('band', None),
-            float(requestJson.get('scale', 30)),
-            requestJson.get('geometry', None),
-            requestJson.get('startDate', None),
-            requestJson.get('endDate', None),
-            requestJson.get('reducer', 'min').lower()
+            get_default(requestJson, 'assetName', None),
+            get_default(requestJson, 'band', None),
+            float(get_default(requestJson, 'scale', 30)),
+            get_default(requestJson, 'geometry'),
+            get_default(requestJson, 'startDate', None),
+            get_default(requestJson, 'endDate', None),
+            get_default(requestJson, 'reducer', 'min').lower()
         )
     }
     return jsonify(values), 200
@@ -476,11 +489,11 @@ def timeSeriesByIndex():
     requestJson = request.get_json()
     values = {
         'timeseries': getTimeSeriesByIndex(
-            requestJson.get('indexName', 'NDVI'),
-            float(requestJson.get('scale', 30)),
-            requestJson.get('geometry', None),
-            requestJson.get('startDate', None),
-            requestJson.get('endDate', None),
+            get_default(requestJson, 'indexName', 'NDVI'),
+            float(get_default(requestJson, 'scale', 30)),
+            get_default(requestJson, 'geometry', None),
+            get_default(requestJson, 'startDate', None),
+            get_default(requestJson, 'endDate', None),
             'median'
         )
     }
@@ -492,19 +505,22 @@ def timeSeriesByIndex():
 @geeGateway.route('/degradationTimeSeries', methods=['POST'])
 def degradationTimeSeries():
     requestJson = request.get_json()
-    geometry = requestJson.get('geometry')
-    startDate = requestJson.get('startDate')
-    endDate = requestJson.get('endDate')
-    graphBand = requestJson.get('graphBand', 'NDFI')
-    dataType = requestJson.get('dataType', 'landsat')
-    sensors = {"l4": True, "l5": True, "l7": True, "l8": True}
-    if dataType == 'landsat':
+    if get_default(requestJson, 'dataType', 'landsat') == 'landsat':
         values = {
-            'timeseries': getDegradationPlotsByPoint(geometry, startDate, endDate, graphBand, sensors)
+            'timeseries': getDegradationPlotsByPoint(
+                get_default(requestJson, 'geometry'),
+                get_default(requestJson, 'startDate'),
+                get_default(requestJson, 'endDate'),
+                get_default(requestJson, 'band', 'NDFI')
+            )
         }
     else:
         values = {
-            'timeseries': getDegradationPlotsByPointS1(geometry, startDate, endDate, graphBand)
+            'timeseries': getDegradationPlotsByPointS1(
+                get_default(requestJson, 'geometry'),
+                get_default(requestJson, 'startDate'),
+                get_default(requestJson, 'endDate')
+            )
         }
     return jsonify(values), 200
 
@@ -512,28 +528,30 @@ def degradationTimeSeries():
 @geeGateway.route('/degradationTileUrl', methods=['POST'])
 def degradationTileUrl():
     requestJson = request.get_json()
-    imageSate = requestJson.get('imageDate', None)
-    geometry = requestJson.get('geometry')
-    stretch = requestJson.get('stretch', 321)
-    # pretty sure SAR is only for type != landsat
-    visParams = {}
-    if stretch == 321:
-        visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
-    elif stretch == 543:
-        visParams = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
-    elif stretch == 453:
-        visParams = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
-    elif stretch == "SAR":
-        visParams = {'bands': 'VV,VH,VV/VH',
-                     'min': '-15,-25,.40', 'max': '0,-10,1', 'gamma': '1.6'}
-    degDataType = requestJson.get('degDataType', 'landsat')
-    if degDataType == 'landsat':
+    imageDate = get_default(requestJson, 'imageDate', None)
+    geometry = get_default(requestJson, 'geometry')
+    if get_default(requestJson, 'degDataType', 'landsat') == 'landsat':
+        stretch = get_default(requestJson, 'stretch', 321)
+        if stretch == 321:
+            visParams = {'bands': 'RED,GREEN,BLUE', 'min': 0, 'max': 1400}
+        elif stretch == 543:
+            visParams = {'bands': 'SWIR1,NIR,RED', 'min': 0, 'max': 7000}
+        elif stretch == 453:
+            visParams = {'bands': 'NIR,SWIR1,RED', 'min': 0, 'max': 7000}
         values = {
-            "url": getDegradationTileUrlByDate(geometry, imageSate, visParams)
+            "url": getDegradationTileUrlByDate(geometry, imageDate, visParams)
         }
     else:
         values = {
-            "url": getDegradationTileUrlByDateS1(geometry, imageSate, visParams)
+            "url": getDegradationTileUrlByDateS1(
+                geometry,
+                imageDate,
+                {
+                    'bands': 'VV,VH,VV/VH',
+                    'min': '-15,-25,.40',
+                    'max': '0,-10,1',
+                    'gamma': '1.6'
+                })
         }
     return jsonify(values), 200
 
@@ -568,5 +586,5 @@ def statistics():
     :resheader Content-Type: application/json
     """
     requestJson = request.get_json()
-    values = getStatistics(requestJson.get('extent', None))
+    values = getStatistics(get_default(requestJson, 'extent', None))
     return jsonify(values), 200
