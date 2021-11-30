@@ -19,6 +19,18 @@ The following is a shorthand version for Debian / Ubuntu
 sudo apt install python3 python3-venv uwsgi uwsgi-plugin-python3 nginx-full
 ```
 
+### GEE User account
+
+```
+# Create common user
+sudo mkdir /opt/gee-gateway
+sudo groupadd gee
+sudo useradd -s /bin/bash -g gee -d /opt/gee-gateway gee
+sudo chown -R gee:gee /opt/gee-gateway
+sudo su - gee
+# You should be in /opt/gee-gateway
+```
+
 ### Python virtual environment
 
 ```sh
