@@ -10,6 +10,7 @@ import urllib.parse
 import distutils
 from distutils import util
 import ast
+from datetime import datetime
 
 # test
 logger = logging.getLogger(__name__)
@@ -1004,6 +1005,35 @@ def get_image_plot_degradition():
         else:
             raise Exception(
                 "Need either image or imageCollection parameter containing the full name")
+    except Exception as e:
+        logger.error(str(e))
+        values = {
+            'errMsg': str(e)
+        }
+    return jsonify(values), 200
+
+
+@gee_gateway.route('/getAvailableCollectionDates', methods=['POST'])
+def get_available_collection_dates():
+    try:
+        request_json = request.get_json()
+        if json:
+            collection = request_json.get('imageCollection', 'LANDSAT/LC08/C02/T1_TOA')
+            geometry = request_json.get('geometry', [
+                [-91.34029931757813, 14.897852537402175],
+                [-91.34029931757813, 14.529926456359712],
+                [-91.06152124140625, 14.529926456359712],
+                [-91.06152124140625, 14.897852537402175],
+            ])
+            start = request_json.get('start')
+            end = request_json.get('end', datetime.today().strftime('%Y-%m-%d'))
+            #      # geometry = ee.Geometry.Polygon(geometry)
+            values = {
+                'available_dates': get_collection_dates_in_range(geometry, start, end, collection)
+            }
+        else:
+            raise Exception(
+                "json was not sent in the post request")
     except Exception as e:
         logger.error(str(e))
         values = {

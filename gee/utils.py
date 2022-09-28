@@ -264,7 +264,7 @@ def getLandSatMergedCollection():
         le7 = ee.ImageCollection('LANDSAT/LE7_L1T_TOA') \
             .filterMetadata('CLOUD_COVER','less_than',metadataCloudCoverMax) \
             .select(sensorBandDictLandsatTOA['L7'],bandNamesLandsatTOA).map(lsMaskClouds)
-        lc8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA') \
+        lc8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA') \
             .filterMetadata('CLOUD_COVER','less_than',metadataCloudCoverMax) \
             .select(sensorBandDictLandsatTOA['L8'],bandNamesLandsatTOA).map(lsMaskClouds)
         s2 = ee.ImageCollection('COPERNICUS/S2') \
@@ -452,8 +452,8 @@ def getTimeSeriesByIndex(indexName, scale, coords=[], dateFrom=None, dateTo=None
 def getTimeSeriesByIndex2(indexName, scale, coords=[], dateFrom=None, dateTo=None, reducer="median"):
     """  """
     bandsByCollection = {
-        'LANDSAT/LC08/C01/T1_TOA': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-        'LANDSAT/LC08/C01/T2_TOA': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+        'LANDSAT/LC08/C02/T1_TOA': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+        'LANDSAT/LC08/C02/T2_TOA': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
         'LANDSAT/LE07/C01/T1_TOA': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7'],
         'LANDSAT/LE07/C01/T2_TOA': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7'],
         'LANDSAT/LT05/C01/T1_TOA': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7'],
@@ -607,6 +607,17 @@ def getDegraditionTileUrlByDate(geometry, date, visParams):
     unmasked = ee.Image(selectedImage).multiply(10000).toInt16().unmask()
     mapparams = unmasked.getMapId(visParams)
     return mapparams['tile_fetcher'].url_format
+
+
+def get_collection_dates_in_range(geometry, start, end, collection):
+    def get_dates(image):
+        return ee.Feature(None, {'date': image.date().format('YYYY-MM-dd')})
+
+    geometry = ee.Geometry.Polygon(geometry)
+    dataset = ee.ImageCollection(collection).filterDate(start, end).filterBounds(geometry)
+    dates = dataset.map(get_dates).distinct('date').aggregate_array('date').sort()
+    return dates.getInfo()
+
 
 def getDegradationPlotsByPoint(geometry, start, end, band, sensors):
     if isinstance(geometry[0], list):
@@ -934,7 +945,7 @@ def getNdviChange(visParams={}, yearFrom=None, yearTo=None):
             from1 = ee.Date.fromYMD(int(year), 1, 1)
             to = ee.Date.fromYMD(int(year) + 1, 1, 1)
             s2 = ee.ImageCollection('COPERNICUS/S2').filterDate(from1, to).map(map1)
-            l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA').filterDate(from1, to).map(map2)
+            l8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA').filterDate(from1, to).map(map2)
             l7 = ee.ImageCollection('LANDSAT/LE07/C01/T1_TOA').filterDate(from1, to).map(map3)
             l5 = ee.ImageCollection('LANDSAT/LT05/C01/T1_TOA').filterDate(from1, to).map(map3)
             return ee.ImageCollection(s2.merge(l8).merge(l7).merge(l5)).max()
